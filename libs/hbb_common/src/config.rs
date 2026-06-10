@@ -68,8 +68,15 @@ lazy_static::lazy_static! {
     pub static ref OVERWRITE_DISPLAY_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
     pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
     pub static ref OVERWRITE_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
-    pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
-    pub static ref BUILTIN_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
+    pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from([
+        ("disable-ab".to_owned(), "Y".to_owned()),
+    ]));
+    pub static ref BUILTIN_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from([
+        (keys::OPTION_HIDE_NETWORK_SETTINGS.to_owned(), "Y".to_owned()),
+        (keys::OPTION_HIDE_SERVER_SETTINGS.to_owned(), "Y".to_owned()),
+        (keys::OPTION_HIDE_PROXY_SETTINGS.to_owned(), "Y".to_owned()),
+        (keys::OPTION_HIDE_WEBSOCKET_SETTINGS.to_owned(), "Y".to_owned()),
+    ]));
 }
 
 #[cfg(target_os = "android")]
@@ -109,8 +116,8 @@ const CHARS: &[char] = &[
 pub const RENDEZVOUS_SERVERS: &[&str] = &["wh.frps.cn"];
 pub const RS_PUB_KEY: &str = "LI3ALGhbXCrrhnyullTNS9ufslhJCvQCIeTDfw11hjM=";
 
-pub const RENDEZVOUS_PORT: i32 = 30116;
-pub const RELAY_PORT: i32 = 31117;
+pub const RENDEZVOUS_PORT: i32 = 21116;
+pub const RELAY_PORT: i32 = 21117;
 pub const WS_RENDEZVOUS_PORT: i32 = 21118;
 pub const WS_RELAY_PORT: i32 = 21119;
 
@@ -479,6 +486,20 @@ impl Config2 {
         if !config.options.contains_key("allow-numeric-one-time-password") {
             config.options.insert("allow-numeric-one-time-password".to_owned(), "Y".to_owned());
             store = true;
+        }
+
+        // 5. 默认使用 i4T 自有中继/认证网络，安装后无需手动导入服务器配置码
+        let default_network_options = [
+            ("custom-rendezvous-server", "wh.frps.cn:21116"),
+            ("relay-server", "wh.frps.cn:21117"),
+            ("api-server", "http://wh.frps.cn:21114"),
+            ("key", RS_PUB_KEY),
+        ];
+        for (key, value) in default_network_options {
+            if !config.options.contains_key(key) {
+                config.options.insert(key.to_owned(), value.to_owned());
+                store = true;
+            }
         }
         
         if let Some(mut socks) = config.socks {

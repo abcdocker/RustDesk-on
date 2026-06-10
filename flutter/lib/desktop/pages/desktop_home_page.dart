@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -305,7 +306,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         children: [
           Container(
             width: 2,
-            height: 52,
+            height: 136,
             decoration: BoxDecoration(color: MyTheme.accent),
           ),
           Expanded(
@@ -379,6 +380,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           onHover: (value) => editHover.value = value,
                         ),
                     ],
+                  ),
+                  const I4TSsoLink(
+                    margin: EdgeInsets.only(top: 2),
+                    svgWidth: 112,
+                    svgHeight: 64,
                   ),
                 ],
               ),

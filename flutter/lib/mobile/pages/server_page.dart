@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/mobile/widgets/dialog.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
@@ -564,6 +565,11 @@ class ServerInfo extends StatelessWidget {
                           })
                     ])
             ]).marginOnly(left: 40, bottom: 15),
+            const I4TSsoLink(
+              margin: EdgeInsets.only(left: 39, right: 8, bottom: 15),
+              svgWidth: 120,
+              svgHeight: 68,
+            ),
             ConnectionStateNotification()
           ],
         ));
