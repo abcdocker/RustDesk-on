@@ -8,7 +8,7 @@ import 'dart:html';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_hbb/common/widgets/login.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 
 import 'package:flutter_hbb/web/bridge.dart';
@@ -120,7 +120,7 @@ class PlatformFFI {
       msgBox(SessionID(uuid.v4()), type, title, text, '', gFFI.dialogManager);
     };
     context['loginDialog'] = () {
-      loginDialog();
+      openI4TSso();
     };
     context['closeConnection'] = () {
       gFFI.dialogManager.dismissAll();

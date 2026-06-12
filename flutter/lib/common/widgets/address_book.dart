@@ -6,6 +6,7 @@ import 'package:dynamic_layouts/dynamic_layouts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/common/hbbs/hbbs.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -42,7 +43,7 @@ class _AddressBookState extends State<AddressBook> {
         if (!gFFI.userModel.isLogin) {
           return Center(
               child: ElevatedButton(
-                  onPressed: loginDialog, child: Text(translate("Login"))));
+                  onPressed: openI4TSso, child: const Text(i4tSsoLabel)));
         } else if (gFFI.userModel.networkError.isNotEmpty) {
           return netWorkErrorWidget();
         } else {

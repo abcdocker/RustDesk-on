@@ -112,6 +112,10 @@ const CHARS: &[char] = &[
     '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
+const LETTER_CHARS: &[char] = &[
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't',
+    'u', 'v', 'w', 'x', 'y', 'z',
+];
 
 pub const RENDEZVOUS_SERVERS: &[&str] = &["wh.frps.cn"];
 pub const RS_PUB_KEY: &str = "LI3ALGhbXCrrhnyullTNS9ufslhJCvQCIeTDfw11hjM=";
@@ -482,9 +486,9 @@ impl Config2 {
             config.options.insert("temporary-password-length".to_owned(), "10".to_owned());
             store = true;
         }
-        // 4. 默认一次性密码为数字
+        // 4. 默认一次性密码包含字母，避免纯数字
         if !config.options.contains_key("allow-numeric-one-time-password") {
-            config.options.insert("allow-numeric-one-time-password".to_owned(), "Y".to_owned());
+            config.options.insert("allow-numeric-one-time-password".to_owned(), "N".to_owned());
             store = true;
         }
 
@@ -971,7 +975,16 @@ impl Config {
     }
 
     pub fn get_auto_password(length: usize) -> String {
-        Self::get_auto_password_with_chars(length, CHARS)
+        let mut password: Vec<char> = Self::get_auto_password_with_chars(length, CHARS)
+            .chars()
+            .collect();
+        if !password.is_empty() && !password.iter().any(|c| c.is_ascii_alphabetic()) {
+            let mut rng = rand::thread_rng();
+            let letter = LETTER_CHARS[rng.gen::<usize>() % LETTER_CHARS.len()];
+            let index = rng.gen::<usize>() % password.len();
+            password[index] = letter;
+        }
+        password.into_iter().collect()
     }
 
     pub fn get_auto_numeric_password(length: usize) -> String {
@@ -2159,6 +2172,7 @@ impl UserDefaultConfig {
             keys::OPTION_CUSTOM_IMAGE_QUALITY => self.get_num_string(key, 50.0, 10.0, 0xFFF as f64),
             keys::OPTION_CUSTOM_FPS => self.get_num_string(key, 30.0, 5.0, 120.0),
             keys::OPTION_ENABLE_FILE_COPY_PASTE => self.get_string(key, "Y", vec!["", "N"]),
+            keys::OPTION_SHOW_QUALITY_MONITOR => self.get_string(key, "Y", vec!["N"]),
             keys::OPTION_EDGE_SCROLL_EDGE_THICKNESS => self.get_num_string(key, 100, 20, 150),
             keys::OPTION_TRACKPAD_SPEED => self.get_num_string(key, 100, 10, 1000),
             _ => self

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
@@ -580,8 +581,8 @@ class _GeneralState extends State<_General> {
         isServer: false,
         optSetter: (key, value) async {
           if (value && !gFFI.userModel.isLogin) {
-            final res = await loginDialog();
-            if (res != true) return;
+            await openI4TSso();
+            return;
           }
           await mainSetLocalBoolOption(key, value);
         },
@@ -1145,34 +1146,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                   ))
               .toList();
 
-          final isOptFixedNumOTP =
-              isOptionFixed(kOptionAllowNumericOneTimePassword);
-          final isNumOPTChangable = !isOptFixedNumOTP && tmpEnabled && !locked;
-          final numericOneTimePassword = GestureDetector(
-            child: InkWell(
-                child: Row(
-              children: [
-                Checkbox(
-                        value: model.allowNumericOneTimePassword,
-                        onChanged: isNumOPTChangable
-                            ? (bool? v) {
-                                model.switchAllowNumericOneTimePassword();
-                              }
-                            : null)
-                    .marginOnly(right: 5),
-                Expanded(
-                    child: Text(
-                  translate('Numeric one-time password'),
-                  style: TextStyle(
-                      color: disabledTextColor(context, isNumOPTChangable)),
-                ))
-              ],
-            )),
-            onTap: isNumOPTChangable
-                ? () => model.switchAllowNumericOneTimePassword()
-                : null,
-          ).marginOnly(left: _kContentHSubMargin - 5);
-
           final modeKeys = <String>[
             'password',
             'click',
@@ -1209,7 +1182,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                     ],
                   ),
                   enabled: tmpEnabled && !locked),
-            if (usePassword) numericOneTimePassword,
             if (usePassword) radios[1],
             if (usePassword && !isChangePermanentPasswordDisabled())
               _SubButton('Set permanent password', setPasswordDialog,
@@ -2015,13 +1987,15 @@ class _AccountState extends State<_Account> {
   }
 
   Widget accountAction() {
-    return Obx(() => _Button(
-        gFFI.userModel.userName.value.isEmpty ? 'Login' : 'Logout',
-        () => {
-              gFFI.userModel.userName.value.isEmpty
-                  ? loginDialog()
-                  : logOutConfirmDialog()
-            }));
+    return Obx(() {
+      if (gFFI.userModel.userName.value.isEmpty) {
+        return const Align(
+          alignment: Alignment.centerLeft,
+          child: I4TSsoButton(width: 230),
+        ).marginOnly(left: _kContentHMargin);
+      }
+      return _Button('Logout', logOutConfirmDialog);
+    });
   }
 
   Widget useInfo() {
@@ -2129,13 +2103,15 @@ class _PluginState extends State<_Plugin> {
   }
 
   Widget accountAction() {
-    return Obx(() => _Button(
-        gFFI.userModel.userName.value.isEmpty ? 'Login' : 'Logout',
-        () => {
-              gFFI.userModel.userName.value.isEmpty
-                  ? loginDialog()
-                  : logOutConfirmDialog()
-            }));
+    return Obx(() {
+      if (gFFI.userModel.userName.value.isEmpty) {
+        return const Align(
+          alignment: Alignment.centerLeft,
+          child: I4TSsoButton(width: 230),
+        ).marginOnly(left: _kContentHMargin);
+      }
+      return _Button('Logout', logOutConfirmDialog);
+    });
   }
 }
 
@@ -2347,6 +2323,20 @@ class _AboutState extends State<_About> {
                   },
                   child: Text(
                     translate('Website'),
+                    style: linkStyle,
+                  ).marginSymmetric(vertical: 4.0)),
+              InkWell(
+                  onTap: () {
+                    launchUrlString(i4tBlogUrl);
+                  },
+                  child: Text(
+                    'i4t.com 运维博客',
+                    style: linkStyle,
+                  ).marginSymmetric(vertical: 4.0)),
+              InkWell(
+                  onTap: openI4TSso,
+                  child: Text(
+                    '$i4tSsoUrl  $i4tSsoLabel',
                     style: linkStyle,
                   ).marginSymmetric(vertical: 4.0)),
               Container(

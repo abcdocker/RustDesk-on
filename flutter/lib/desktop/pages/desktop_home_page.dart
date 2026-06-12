@@ -4,11 +4,11 @@ import 'dart:convert';
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
+import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -93,6 +93,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         child: loadLogo(),
       ),
       buildTip(context),
+      buildFrontAccountAction(context),
       if (!isOutgoingOnly) buildIDBoard(context),
       if (!isOutgoingOnly) buildPasswordBoard(context),
       FutureBuilder<Widget>(
@@ -189,6 +190,41 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
+  Widget buildFrontAccountAction(BuildContext context) {
+    if (bind.isDisableAccount()) {
+      return const Offstage();
+    }
+    return Obx(() {
+      final userName = gFFI.userModel.userName.value;
+      if (userName.isEmpty) {
+        return const Align(
+          alignment: Alignment.centerLeft,
+          child: I4TSsoButton(width: 164, height: 34, iconSize: 18),
+        ).marginOnly(left: 20, right: 16, bottom: 8);
+      }
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          icon: const Icon(Icons.logout, size: 17),
+          label: const Text(
+            '退出登录',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onPressed: logOutConfirmDialog,
+        ),
+      ).marginOnly(left: 20, right: 16, bottom: 8);
+    });
+  }
+
+  Future<void> _copyI4TInfo({
+    String? id,
+    String? oneTimePassword,
+  }) async {
+    await copyI4TRustDeskInfo(id: id, oneTimePassword: oneTimePassword);
+    showToast(translate("Copied"));
+  }
+
   buildIDBoard(BuildContext context) {
     final model = gFFI.serverModel;
     return Container(
@@ -229,23 +265,34 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                     ),
                   ),
                   Flexible(
-                    child: GestureDetector(
-                      onDoubleTap: () {
-                        Clipboard.setData(
-                            ClipboardData(text: model.serverId.text));
-                        showToast(translate("Copied"));
-                      },
-                      child: TextFormField(
-                        controller: model.serverId,
-                        readOnly: true,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.only(top: 10, bottom: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onDoubleTap: () {
+                              _copyI4TInfo(id: model.serverId.text);
+                            },
+                            child: TextFormField(
+                              controller: model.serverId,
+                              readOnly: true,
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding:
+                                    EdgeInsets.only(top: 10, bottom: 10),
+                              ),
+                              style: TextStyle(
+                                fontSize: 22,
+                              ),
+                            ).workaroundFreezeLinuxMint(),
+                          ),
                         ),
-                        style: TextStyle(
-                          fontSize: 22,
+                        IconButton(
+                          tooltip: translate('Copy'),
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.copy_outlined, size: 18),
+                          onPressed: () => _copyI4TInfo(id: model.serverId.text),
                         ),
-                      ).workaroundFreezeLinuxMint(),
+                      ],
                     ),
                   )
                 ],
@@ -306,7 +353,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         children: [
           Container(
             width: 2,
-            height: 136,
+            height: 178,
             decoration: BoxDecoration(color: MyTheme.accent),
           ),
           Expanded(
@@ -327,9 +374,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                         child: GestureDetector(
                           onDoubleTap: () {
                             if (showOneTime) {
-                              Clipboard.setData(
-                                  ClipboardData(text: model.serverPasswd.text));
-                              showToast(translate("Copied"));
+                              _copyI4TInfo(
+                                  oneTimePassword: model.serverPasswd.text);
                             }
                           },
                           child: TextFormField(
@@ -344,6 +390,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           ).workaroundFreezeLinuxMint(),
                         ),
                       ),
+                      if (showOneTime)
+                        IconButton(
+                          tooltip: translate('Copy'),
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.copy_outlined, size: 18),
+                          onPressed: () => _copyI4TInfo(
+                              oneTimePassword: model.serverPasswd.text),
+                        ).marginOnly(right: 4, top: 4),
                       if (showOneTime)
                         AnimatedRotationWidget(
                           onPressed: () => bind.mainUpdateTemporaryPassword(),
@@ -380,6 +434,23 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           onHover: (value) => editHover.value = value,
                         ),
                     ],
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.copy_all_outlined, size: 17),
+                      label: const Text(
+                        '复制连接信息',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onPressed: showOneTime
+                          ? () => _copyI4TInfo(
+                                id: model.serverId.text,
+                                oneTimePassword: model.serverPasswd.text,
+                              )
+                          : () => _copyI4TInfo(id: model.serverId.text),
+                    ),
                   ),
                   const I4TSsoLink(
                     margin: EdgeInsets.only(top: 2),

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/hbbs/hbbs.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/user_model.dart';
 import 'package:get/get.dart';
@@ -369,13 +370,13 @@ class LoginWidgetUserPass extends StatelessWidget {
                 width: 200,
                 child: Obx(() => ElevatedButton(
                       child: Text(
-                        translate('Login'),
+                        i4tSsoLabel,
                         style: TextStyle(fontSize: 16),
                       ),
                       onPressed:
                           curOP.value.isEmpty || curOP.value == 'rustdesk'
                               ? () {
-                                  onLogin();
+                                  openI4TSso();
                                 }
                               : null,
                     )),

@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
@@ -467,16 +468,11 @@ class _CmHeaderState extends State<_CmHeader>
             height: 70,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: str2color(client.name),
               borderRadius: BorderRadius.circular(15.0),
             ),
-            child: Text(
-              client.name[0],
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 55,
-              ),
+            child: I4TDynamicAvatar(
+              seed: client.peerId.isEmpty ? client.name : client.peerId,
+              radius: 35,
             ),
           ).marginOnly(right: 10.0),
           Expanded(

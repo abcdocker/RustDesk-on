@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:get/get.dart';
@@ -687,12 +688,14 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             tiles: [
               SettingsTile(
                 title: Obx(() => Text(gFFI.userModel.userName.value.isEmpty
-                    ? translate('Login')
+                    ? i4tSsoLabel
                     : '${translate('Logout')} (${gFFI.userModel.userName.value})')),
-                leading: Icon(Icons.person),
+                leading: Obx(() => Icon(gFFI.userModel.userName.value.isEmpty
+                    ? Icons.login
+                    : Icons.logout)),
                 onPressed: (context) {
                   if (gFFI.userModel.userName.value.isEmpty) {
-                    loginDialog();
+                    openI4TSso();
                   } else {
                     logOutConfirmDialog();
                   }
@@ -815,8 +818,8 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
               initialValue: _allowAskForNoteAtEndOfConnection,
               onToggle: (v) async {
                 if (v && !gFFI.userModel.isLogin) {
-                  final res = await loginDialog();
-                  if (res != true) return;
+                  await openI4TSso();
+                  return;
                 }
                 await mainSetLocalBoolOption(
                     kOptionAllowAskForNoteAtEndOfConnection, v);
@@ -1084,6 +1087,26 @@ void showAbout(OverlayDialogManager dialogManager) {
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text('rustdesk.com',
+                  style: TextStyle(
+                    decoration: TextDecoration.underline,
+                  )),
+            )),
+        InkWell(
+            onTap: () async {
+              await launchUrl(Uri.parse(i4tBlogUrl));
+            },
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('i4t.com 运维博客',
+                  style: TextStyle(
+                    decoration: TextDecoration.underline,
+                  )),
+            )),
+        InkWell(
+            onTap: openI4TSso,
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('$i4tSsoUrl  $i4tSsoLabel',
                   style: TextStyle(
                     decoration: TextDecoration.underline,
                   )),

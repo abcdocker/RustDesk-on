@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-const _i4tSsoUrl = 'https://sso.frps.cn';
+const i4tSsoUrl = 'https://sso.frps.cn';
+const i4tBlogUrl = 'https://i4t.com';
+const i4tSsoLabel = 'i4T SSO运维单点登录';
+const i4tCopyNote = 'i4T 运维博客单点登录Rustdesk客户端使用';
 
 const _i4tSsoSvg = '''
 <svg width="168" height="96" viewBox="0 0 168 96" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -27,6 +31,37 @@ const _i4tSsoSvg = '''
 </svg>
 ''';
 
+Future<void> openI4TSso() async {
+  final uri = Uri.parse(i4tSsoUrl);
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    await launchUrl(uri);
+  }
+}
+
+String i4tRustDeskCopyText({
+  String? id,
+  String? oneTimePassword,
+}) {
+  final lines = <String>[i4tCopyNote];
+  final trimmedId = id?.trim() ?? '';
+  final trimmedPassword = oneTimePassword?.trim() ?? '';
+  if (trimmedId.isNotEmpty) {
+    lines.add('ID: $trimmedId');
+  }
+  if (trimmedPassword.isNotEmpty && trimmedPassword != '-') {
+    lines.add('一次性密码: $trimmedPassword');
+  }
+  return lines.join('\n');
+}
+
+Future<void> copyI4TRustDeskInfo({
+  String? id,
+  String? oneTimePassword,
+}) async {
+  await Clipboard.setData(ClipboardData(
+      text: i4tRustDeskCopyText(id: id, oneTimePassword: oneTimePassword)));
+}
+
 class I4TSsoLink extends StatelessWidget {
   const I4TSsoLink({
     Key? key,
@@ -39,13 +74,6 @@ class I4TSsoLink extends StatelessWidget {
   final double svgWidth;
   final double svgHeight;
 
-  Future<void> _openSso() async {
-    final uri = Uri.parse(_i4tSsoUrl);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      await launchUrl(uri);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.primary;
@@ -55,7 +83,7 @@ class I4TSsoLink extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: _openSso,
+          onTap: openI4TSso,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: Column(
@@ -69,7 +97,7 @@ class I4TSsoLink extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'i4T SSO运维单点登录',
+                  i4tSsoLabel,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -85,5 +113,132 @@ class I4TSsoLink extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class I4TSsoButton extends StatelessWidget {
+  const I4TSsoButton({
+    Key? key,
+    this.height = 38,
+    this.width,
+    this.iconSize = 20,
+  }) : super(key: key);
+
+  final double height;
+  final double? width;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = ElevatedButton.icon(
+      icon: SvgPicture.string(
+        _i4tSsoSvg,
+        width: iconSize,
+        height: iconSize,
+        fit: BoxFit.cover,
+      ),
+      label: const Text(
+        i4tSsoLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onPressed: openI4TSso,
+    );
+    return SizedBox(height: height, width: width, child: button);
+  }
+}
+
+class I4TDynamicAvatar extends StatelessWidget {
+  const I4TDynamicAvatar({
+    Key? key,
+    required this.seed,
+    this.radius = 14,
+  }) : super(key: key);
+
+  final String seed;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = radius * 2;
+    return ClipOval(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _I4TAvatarPainter(seed),
+        ),
+      ),
+    );
+  }
+}
+
+class _I4TAvatarPainter extends CustomPainter {
+  _I4TAvatarPainter(this.seed);
+
+  final String seed;
+
+  int get _hash {
+    var hash = 0x45d9f3b;
+    for (var i = 0; i < seed.length; i++) {
+      hash = 0x1fffffff & (hash + seed.codeUnitAt(i));
+      hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
+      hash ^= hash >> 6;
+    }
+    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
+    hash ^= hash >> 11;
+    hash = 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
+    return hash;
+  }
+
+  Color _color(int shift, double saturation, double lightness) {
+    final hue = ((_hash >> shift) & 0xff) * 360 / 255;
+    return HSLColor.fromAHSL(1, hue, saturation, lightness).toColor();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final base = _color(0, 0.58, 0.32);
+    final accent = _color(8, 0.78, 0.58);
+    final warm = _color(16, 0.82, 0.64);
+    final bgPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [base, accent],
+      ).createShader(rect);
+    canvas.drawRect(rect, bgPaint);
+
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.11
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withOpacity(0.38);
+    canvas.drawArc(
+      rect.deflate(size.width * 0.18),
+      -0.85,
+      4.45,
+      false,
+      ringPaint,
+    );
+
+    final dotPaint = Paint()..color = warm;
+    final dotRadius = size.width * 0.12;
+    canvas.drawCircle(
+      Offset(size.width * 0.68, size.height * 0.34),
+      dotRadius,
+      dotPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.38, size.height * 0.62),
+      dotRadius * 0.68,
+      Paint()..color = Colors.white.withOpacity(0.5),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _I4TAvatarPainter oldDelegate) {
+    return oldDelegate.seed != seed;
   }
 }

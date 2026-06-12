@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/hbbs/hbbs.dart';
-import 'package:flutter_hbb/common/widgets/login.dart';
+import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
@@ -33,7 +33,7 @@ class _MyGroupState extends State<MyGroup> {
       if (!gFFI.userModel.isLogin) {
         return Center(
             child: ElevatedButton(
-                onPressed: loginDialog, child: Text(translate("Login"))));
+                onPressed: openI4TSso, child: const Text(i4tSsoLabel)));
       } else if (gFFI.userModel.networkError.isNotEmpty) {
         return netWorkErrorWidget();
       } else if (gFFI.groupModel.groupLoading.value && gFFI.groupModel.emtpy) {
@@ -211,24 +211,8 @@ class _MyGroupState extends State<MyGroup> {
           child: Container(
             child: Row(
               children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: str2color(username, 0xAF),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: Center(
-                      child: Text(
-                        username.characters.first.toUpperCase(),
-                        style: TextStyle(color: Colors.white),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ).marginOnly(right: 4),
+                I4TDynamicAvatar(seed: username, radius: 10)
+                    .marginOnly(right: 4),
                 if (isMe) Flexible(child: Text(username)),
                 if (isMe)
                   Flexible(

@@ -894,6 +894,15 @@ class FfiModel with ChangeNotifier {
     final text = evt['text'];
     final link = evt['link'];
 
+    final normalizedText = (text ?? '').toString().trim().toLowerCase();
+    if (normalizedText == 'connection failed, please login!' ||
+        normalizedText.contains('please login')) {
+      showMsgBox(sessionId, 'info', '需要登录', '需要登录才可以连接', '', false,
+          dialogManager,
+          hasCancel: false);
+      return;
+    }
+
     // Disable relative mouse mode on any error-type message to ensure cursor is released.
     // This includes connection errors, session-ending messages, elevation errors, etc.
     // Safety: releasing pointer lock on errors prevents the user from being stuck.

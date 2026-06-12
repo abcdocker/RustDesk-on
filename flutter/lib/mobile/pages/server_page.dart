@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/mobile/widgets/dialog.dart';
@@ -57,10 +56,6 @@ class _DropDownAction extends StatelessWidget {
           final verificationMethod = gFFI.serverModel.verificationMethod;
           final showPasswordOption = approveMode != 'click';
           final isApproveModeFixed = isOptionFixed(kOptionApproveMode);
-          final isNumericOneTimePasswordFixed =
-              isOptionFixed(kOptionAllowNumericOneTimePassword);
-          final isAllowNumericOneTimePassword =
-              gFFI.serverModel.allowNumericOneTimePassword;
           return [
             if (!isChangeIdDisabled())
               PopupMenuItem(
@@ -101,14 +96,6 @@ class _DropDownAction extends StatelessWidget {
                 value: "setTemporaryPasswordLength",
                 child: Text(translate("One-time password length")),
               ),
-            if (showPasswordOption &&
-                verificationMethod != kUsePermanentPassword)
-              PopupMenuItem(
-                value: "allowNumericOneTimePassword",
-                child: listTile(translate("Numeric one-time password"),
-                    isAllowNumericOneTimePassword),
-                enabled: !isNumericOneTimePasswordFixed,
-              ),
             if (showPasswordOption) const PopupMenuDivider(),
             if (showPasswordOption)
               PopupMenuItem(
@@ -139,9 +126,6 @@ class _DropDownAction extends StatelessWidget {
             setPasswordDialog();
           } else if (value == "setTemporaryPasswordLength") {
             setTemporaryPasswordLengthDialog(gFFI.dialogManager);
-          } else if (value == "allowNumericOneTimePassword") {
-            gFFI.serverModel.switchAllowNumericOneTimePassword();
-            gFFI.serverModel.updatePasswordModel();
           } else if (value == kUsePermanentPassword ||
               value == kUseTemporaryPassword ||
               value == kUseBothPasswords) {
@@ -479,8 +463,8 @@ class ServerInfo extends StatelessWidget {
     const TextStyle textStyleValue =
         TextStyle(fontSize: 25.0, fontWeight: FontWeight.bold);
 
-    void copyToClipboard(String value) {
-      Clipboard.setData(ClipboardData(text: value));
+    void copyToClipboard({String? id, String? oneTimePassword}) async {
+      await copyI4TRustDeskInfo(id: id, oneTimePassword: oneTimePassword);
       showToast(translate('Copied'));
     }
 
@@ -532,7 +516,7 @@ class ServerInfo extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   icon: Icon(Icons.copy_outlined),
                   onPressed: () {
-                    copyToClipboard(model.serverId.value.text.trim());
+                    copyToClipboard(id: model.serverId.value.text.trim());
                   })
             ]).marginOnly(left: 39, bottom: 10),
             // Password
@@ -561,10 +545,25 @@ class ServerInfo extends StatelessWidget {
                           icon: Icon(Icons.copy_outlined),
                           onPressed: () {
                             copyToClipboard(
-                                model.serverPasswd.value.text.trim());
+                                oneTimePassword:
+                                    model.serverPasswd.value.text.trim());
                           })
                     ])
             ]).marginOnly(left: 40, bottom: 15),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                icon: const Icon(Icons.copy_all_outlined),
+                label: const Text('复制连接信息'),
+                onPressed: () {
+                  copyToClipboard(
+                    id: model.serverId.value.text.trim(),
+                    oneTimePassword:
+                        showOneTime ? model.serverPasswd.value.text.trim() : '',
+                  );
+                },
+              ),
+            ).marginOnly(left: 34, bottom: 8),
             const I4TSsoLink(
               margin: EdgeInsets.only(left: 39, right: 8, bottom: 15),
               svgWidth: 120,
@@ -847,13 +846,11 @@ class ClientInfo extends StatelessWidget {
                   flex: -1,
                   child: Padding(
                       padding: const EdgeInsets.only(right: 12),
-                      child: CircleAvatar(
-                          backgroundColor: str2color(
-                              client.name,
-                              Theme.of(context).brightness == Brightness.light
-                                  ? 255
-                                  : 150),
-                          child: Text(client.name[0])))),
+                      child: I4TDynamicAvatar(
+                        seed:
+                            client.peerId.isEmpty ? client.name : client.peerId,
+                        radius: 20,
+                      ))),
               Expanded(
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
