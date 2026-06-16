@@ -6,10 +6,12 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/common/widgets/login.dart';
+import 'package:flutter_hbb/common/widgets/peer_tab_page.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -38,6 +40,43 @@ class DesktopHomePage extends StatefulWidget {
 
 const borderColor = Color(0xFF2F65BA);
 
+class _I4TFeatureBadge extends StatelessWidget {
+  const _I4TFeatureBadge({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF2FF),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 15, color: const Color(0xFF1266F1)),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xFF475569),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _DesktopHomePageState extends State<DesktopHomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final _leftPaneScrollController = ScrollController();
@@ -58,11 +97,16 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   final RxBool _block = false.obs;
 
   final GlobalKey _childKey = GlobalKey();
+  final TextEditingController _i4tRemoteIdController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final isIncomingOnly = bind.isIncomingOnly();
+    final isOutgoingOnly = bind.isOutgoingOnly();
+    if (!isIncomingOnly && !isOutgoingOnly) {
+      return _buildBlock(child: buildI4TDashboard(context));
+    }
     return _buildBlock(
         child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,6 +232,580 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: ConnectionPage(),
+    );
+  }
+
+  Widget buildI4TDashboard(BuildContext context) {
+    return ChangeNotifierProvider.value(
+      value: gFFI.serverModel,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFF8FBFF), Color(0xFFEAF2FF)],
+          ),
+        ),
+        child: Row(
+          children: [
+            _buildI4TSidebar(context),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                child: Column(
+                  children: [
+                    _buildI4TTopBar(context),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: 282,
+                            child: Column(
+                              children: [
+                                Expanded(child: _buildI4TLocalCard(context)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 5,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  flex: 4,
+                                  child: _buildI4TSsoHero(context),
+                                ),
+                                const SizedBox(height: 14),
+                                Expanded(
+                                  flex: 3,
+                                  child: _buildI4TPanel(
+                                    context,
+                                    title: '连接到远程设备',
+                                    child: _buildI4TConnectCard(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: 308,
+                            child: _buildI4TPanel(
+                              context,
+                              title: '地址簿',
+                              trailing: IconButton(
+                                tooltip: translate('Refresh'),
+                                icon: const Icon(Icons.refresh, size: 18),
+                                onPressed: () => gFFI.abModel.pullAb(
+                                    force: null, quiet: false),
+                              ),
+                              child: const PeerTabPage(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle,
+                            size: 15, color: Color(0xFF22C55E)),
+                        const SizedBox(width: 6),
+                        Text('状态图例：绿色 = 在线，灰色 = 离线',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color
+                                    ?.withOpacity(0.72))),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildI4TSidebar(BuildContext context) {
+    return Container(
+      width: 188,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.94),
+        border: Border(
+          right: BorderSide(color: const Color(0xFFE3EAF6)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 22, 16, 18),
+            child: SvgPicture.asset(
+              'assets/custom_logo.svg',
+              height: 54,
+              fit: BoxFit.contain,
+            ),
+          ),
+          _buildI4TNavItem(Icons.desktop_windows_outlined, '远程连接',
+              selected: true),
+          _buildI4TNavItem(Icons.devices_outlined, '设备'),
+          _buildI4TNavItem(Icons.book_outlined, '地址簿'),
+          _buildI4TNavItem(Icons.history_outlined, '最近连接'),
+          _buildI4TNavItem(Icons.star_border_rounded, '收藏夹'),
+          _buildI4TNavItem(Icons.admin_panel_settings_outlined, '权限管理'),
+          const Spacer(),
+          _buildI4TNavItem(Icons.settings_outlined, '设置',
+              onTap: DesktopTabPage.onAddSetting),
+          _buildI4TNavItem(Icons.info_outline, '关于',
+              onTap: () => DesktopSettingPage.switch2page(SettingsTabKey.about)),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildI4TNavItem(IconData icon, String label,
+      {bool selected = false, VoidCallback? onTap}) {
+    final color = selected ? const Color(0xFF1266F1) : const Color(0xFF1F2A44);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Material(
+        color: selected ? const Color(0xFFEAF2FF) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                const SizedBox(width: 12),
+                Icon(icon, size: 20, color: color),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildI4TTopBar(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE3EAF6)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_user_outlined,
+              size: 24, color: Color(0xFF1266F1)),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              '安全 · 开源 · 高效的远程桌面',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0B1B43),
+              ),
+            ),
+          ),
+          _buildI4TAccountMenu(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildI4TAccountMenu(BuildContext context) {
+    if (bind.isDisableAccount()) {
+      return const Offstage();
+    }
+    return Obx(() {
+      final userName = gFFI.userModel.userName.value;
+      if (userName.isEmpty) {
+        return TextButton.icon(
+          icon: const Icon(Icons.person, size: 18),
+          label: const Text('登录'),
+          onPressed: openI4TSso,
+        );
+      }
+      return PopupMenuButton<String>(
+        tooltip: userName,
+        offset: const Offset(0, 42),
+        onSelected: (value) {
+          if (value == 'logout') {
+            logOutConfirmDialog();
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'user',
+            enabled: false,
+            child: Row(
+              children: [
+                I4TDynamicAvatar(seed: userName, radius: 14),
+                const SizedBox(width: 10),
+                Expanded(child: Text(userName)),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'logout',
+            child: Row(
+              children: [
+                Icon(Icons.logout, size: 18),
+                SizedBox(width: 10),
+                Text('退出'),
+              ],
+            ),
+          ),
+        ],
+        child: Row(
+          children: [
+            I4TDynamicAvatar(seed: userName, radius: 18),
+            const SizedBox(width: 6),
+            const Icon(Icons.keyboard_arrow_down, size: 18),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildI4TLocalCard(BuildContext context) {
+    return Consumer<ServerModel>(
+      builder: (context, model, _) {
+        final showOneTime = model.approveMode != 'click' &&
+            model.verificationMethod != kUsePermanentPassword;
+        return _buildI4TPanel(
+          context,
+          title: '本机信息',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildI4TFieldLabel('本机 ID'),
+              _buildI4TValueRow(
+                controller: model.serverId,
+                fontSize: 30,
+                onCopy: () => _copyI4TInfo(id: model.serverId.text),
+              ),
+              const SizedBox(height: 18),
+              _buildI4TFieldLabel('一次性验证码'),
+              _buildI4TValueRow(
+                controller: model.serverPasswd,
+                fontSize: 26,
+                enabled: showOneTime,
+                onCopy: showOneTime
+                    ? () => _copyI4TInfo(
+                        id: model.serverId.text,
+                        oneTimePassword: model.serverPasswd.text)
+                    : null,
+                trailing: showOneTime
+                    ? IconButton(
+                        tooltip: translate('Refresh Password'),
+                        icon: const Icon(Icons.refresh,
+                            size: 22, color: Color(0xFF6B7280)),
+                        onPressed: () => bind.mainUpdateTemporaryPassword(),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                showOneTime ? '验证码自动刷新，可一键复制分享' : '当前使用点击确认或永久密码验证',
+                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildI4TConnectCard(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '输入远程设备 ID',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _i4tRemoteIdController,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: TextInputType.visiblePassword,
+          inputFormatters: [IDTextInputFormatter()],
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          decoration: const InputDecoration(
+            hintText: '输入远程设备 ID',
+            prefixIcon: Icon(Icons.computer_outlined),
+          ),
+          onSubmitted: (_) => _connectI4TRemote(context),
+        ).workaroundFreezeLinuxMint(),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.link),
+                  label: const Text(
+                    '连接',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  onPressed: () => _connectI4TRemote(context),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            PopupMenuButton<String>(
+              tooltip: translate('More'),
+              onSelected: (value) {
+                _connectI4TRemote(
+                  context,
+                  isFileTransfer: value == 'file',
+                  isViewCamera: value == 'camera',
+                  isTerminal: value == 'terminal',
+                );
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'file',
+                  child: Text(translate('Transfer file')),
+                ),
+                PopupMenuItem(
+                  value: 'camera',
+                  child: Text(translate('View camera')),
+                ),
+                PopupMenuItem(
+                  value: 'terminal',
+                  child: Text('${translate('Terminal')} (beta)'),
+                ),
+              ],
+              child: Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD7E0EF)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.expand_more),
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+        const Row(
+          children: [
+            Icon(Icons.check_circle, size: 16, color: Color(0xFF22C55E)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '就绪，可发起远程连接',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _connectI4TRemote(
+    BuildContext context, {
+    bool isFileTransfer = false,
+    bool isViewCamera = false,
+    bool isTerminal = false,
+  }) {
+    connect(
+      context,
+      _i4tRemoteIdController.text,
+      isFileTransfer: isFileTransfer,
+      isViewCamera: isViewCamera,
+      isTerminal: isTerminal,
+    );
+  }
+
+  Widget _buildI4TSsoHero(BuildContext context) {
+    return _buildI4TPanel(
+      context,
+      title: '统一身份认证 / OIDC SSO',
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_person_outlined,
+                  size: 46, color: Color(0xFF1266F1)),
+              const SizedBox(height: 12),
+              const Text(
+                '安全便捷的单点登录体验',
+                style: TextStyle(fontSize: 16, color: Color(0xFF5B667A)),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: 300,
+                height: 52,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.lock_open_outlined),
+                  label: const Text(
+                    '使用 OIDC 登录',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  onPressed: openI4TSso,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: openI4TSso,
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('了解更多登录方式'),
+              ),
+              const SizedBox(height: 10),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _I4TFeatureBadge(icon: Icons.person, text: '统一账号'),
+                  SizedBox(width: 18),
+                  _I4TFeatureBadge(icon: Icons.security, text: '企业认证'),
+                  SizedBox(width: 18),
+                  _I4TFeatureBadge(icon: Icons.bolt, text: '快速访问'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildI4TPanel(BuildContext context,
+      {required String title, required Widget child, Widget? trailing}) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.96),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE3EAF6)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1D4ED8).withOpacity(0.07),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 50,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0B1B43),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) trailing,
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE9EEF8)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildI4TFieldLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Color(0xFF0F172A),
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
+  Widget _buildI4TValueRow({
+    required TextEditingController controller,
+    required double fontSize,
+    required VoidCallback? onCopy,
+    Widget? trailing,
+    bool enabled = true,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            readOnly: true,
+            enabled: enabled,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF1266F1),
+              letterSpacing: 0,
+            ),
+          ).workaroundFreezeLinuxMint(),
+        ),
+        IconButton(
+          tooltip: translate('Copy'),
+          icon: const Icon(Icons.copy_outlined, color: Color(0xFF1266F1)),
+          onPressed: onCopy,
+        ),
+        if (trailing != null) trailing,
+      ],
     );
   }
 
@@ -970,6 +1588,7 @@ buildTip(BuildContext context) {
   @override
   void dispose() {
     _uniLinksSubscription?.cancel();
+    _i4tRemoteIdController.dispose();
     Get.delete<RxBool>(tag: 'stop-service');
     _updateTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
