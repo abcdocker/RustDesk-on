@@ -149,7 +149,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Click to upgrade", "点击这里升级"),
         ("Configure", "配置"),
         ("config_acc", "为了能够远程控制你的桌面, 请给予 RustDesk \"辅助功能\" 权限。"),
-        ("config_screen", "为了能够远程访问你的桌面, 请给予 RustDesk \"屏幕录制\" 权限。"),
+        ("config_screen", "为了能够远程访问你的桌面, 请给予 RustDesk \"屏幕录制\" 权限。请先将 RustDesk 拖入“应用程序”后再授权；授权后需要完全退出 RustDesk，并从“应用程序”重新打开。"),
         ("Installing ...", "安装中..."),
         ("Install", "安装"),
         ("Installation", "安装"),
