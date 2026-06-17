@@ -1,9 +1,15 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/models/user_model.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const i4tSsoUrl = 'https://sso.frps.cn';
+const i4tRustDeskApiUrl = 'http://wh.frps.cn:21114';
 const i4tBlogUrl = 'https://i4t.com';
 const i4tSsoLabel = 'i4T SSO运维单点登录';
 const i4tCopyNote = 'i4T 运维博客单点登录Rustdesk客户端使用';
@@ -31,11 +37,89 @@ const _i4tSsoSvg = '''
 </svg>
 ''';
 
-Future<void> openI4TSso() async {
-  final uri = Uri.parse(i4tSsoUrl);
-  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-    await launchUrl(uri);
+Future<bool> openI4TSso() async {
+  try {
+    await _ensureI4TRustDeskApiServer();
+    final op = await _queryI4TOidcProvider();
+    if (op == null || op.isEmpty) {
+      showToast('未从 RustDesk API 获取到 OIDC 登录方式');
+      return false;
+    }
+    showToast('请在浏览器完成 i4T SSO 登录');
+    await bind.mainAccountAuth(op: op, rememberMe: true);
+    return await _waitI4TOidcResult();
+  } catch (e) {
+    bind.mainAccountAuthCancel();
+    showToast('i4T SSO 登录失败：$e');
+    return false;
   }
+}
+
+Future<void> _ensureI4TRustDeskApiServer() async {
+  final current = (await bind.mainGetApiServer()).trim();
+  if (current.isEmpty ||
+      current.contains('sso.frps.cn') ||
+      current.contains('rustdesk.frps.cn') ||
+      !current.contains('wh.frps.cn')) {
+    await bind.mainSetOption(key: 'api-server', value: i4tRustDeskApiUrl);
+  }
+}
+
+Future<String?> _queryI4TOidcProvider() async {
+  final options = await UserModel.queryOidcLoginOptions();
+  final providers = options
+      .whereType<Map>()
+      .map((e) => e.map((key, value) => MapEntry(key.toString(), value)))
+      .where((e) => (e['name'] ?? '').toString().trim().isNotEmpty)
+      .toList();
+  if (providers.isEmpty) return null;
+  providers.sort((a, b) {
+    int rank(Map<dynamic, dynamic> item) {
+      final name = (item['name'] ?? '').toString().toLowerCase();
+      if (name.contains('authentik')) return 0;
+      if (name.contains('i4t')) return 1;
+      if (name.contains('sso')) return 2;
+      return 3;
+    }
+
+    return rank(a).compareTo(rank(b));
+  });
+  return providers.first['name']?.toString();
+}
+
+Future<bool> _waitI4TOidcResult() async {
+  var launchedUrl = '';
+  for (var i = 0; i < 180; i++) {
+    await Future.delayed(const Duration(seconds: 1));
+    final result = await bind.mainAccountAuthResult();
+    if (result.isEmpty) continue;
+    final resultMap = jsonDecode(result) as Map<String, dynamic>;
+    final failedMsg = (resultMap['failed_msg'] ?? '').toString();
+    final url = (resultMap['url'] ?? '').toString();
+    final authBody = resultMap['auth_body'];
+
+    if (url.isNotEmpty && launchedUrl != url) {
+      launchedUrl = url;
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+
+    if (authBody != null) {
+      final body = Map<String, dynamic>.from(authBody as Map);
+      gFFI.userModel.getLoginResponseFromAuthBody(body);
+      await UserModel.updateOtherModels();
+      showToast(translate('Successful'));
+      return true;
+    }
+
+    if (failedMsg.isNotEmpty) {
+      showToast(failedMsg);
+      bind.mainAccountAuthCancel();
+      return false;
+    }
+  }
+  bind.mainAccountAuthCancel();
+  showToast('i4T SSO 登录超时，请重试');
+  return false;
 }
 
 String i4tRustDeskCopyText({
