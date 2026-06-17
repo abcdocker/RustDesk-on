@@ -808,7 +808,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 ),
               ),
               TextButton.icon(
-                onPressed: openI4TSso,
+                onPressed: () => openI4TSso(),
                 icon: const Icon(Icons.open_in_new, size: 16),
                 label: const Text('直接使用 i4T SSO'),
               ),

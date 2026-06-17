@@ -167,7 +167,7 @@ class I4TSsoLink extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: openI4TSso,
+          onTap: () => openI4TSso(),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: Column(
@@ -226,7 +226,7 @@ class I4TSsoButton extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      onPressed: openI4TSso,
+      onPressed: () => openI4TSso(),
     );
     return SizedBox(height: height, width: width, child: button);
   }
