@@ -527,6 +527,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     if (bind.isDisableAccount()) {
       return const Offstage();
     }
+    // 登录入口只在"远程连接"section 显示
+    if (_i4tSection != _I4TDashboardSection.remote) {
+      return const Offstage();
+    }
     return Obx(() {
       final userName = gFFI.userModel.userName.value;
       if (userName.isEmpty) {
@@ -1055,8 +1059,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   bool get _i4tPeerSectionNeedsLogin {
-    return _i4tSection == _I4TDashboardSection.remote ||
-        _i4tSection == _I4TDashboardSection.addressBook;
+    // 统一身份验证登录只在"远程连接"section 需要
+    return _i4tSection == _I4TDashboardSection.remote;
   }
 
   void _refreshI4TPeerSection() {

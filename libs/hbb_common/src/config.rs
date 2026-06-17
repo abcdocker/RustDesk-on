@@ -469,6 +469,8 @@ fn patch(path: PathBuf) -> PathBuf {
 impl Config2 {
     fn load() -> Config2 {
         let mut config = Config::load_::<Config2>("2");
+        // 保存 V2 里的 access_token（用于 V1 丢失时恢复）
+        let v2_access_token = config.options.get("access_token").cloned();
         let mut store = false;
 
         // 1. 默认允许远程修改配置
@@ -1918,6 +1920,30 @@ impl LocalConfig {
         let mut config = Config::load_::<LocalConfig>("_local");
         let mut store = false;
 
+        // 0. 如果 V1 (LocalConfig) 没有 access_token，从 V2 (Config2) 恢复
+        //    修复 V2→V1 迁移时遗漏导致重启丢登录态
+        if !config.options.contains_key("access_token") || 
+           config.options.get("access_token").map(|s| s.is_empty()).unwrap_or(true) {
+            let v2_file = Config::file_("2");
+            if v2_file.exists() {
+                if let Ok(v2_content) = std::fs::read_to_string(&v2_file) {
+                    if let Ok(v2) = v2_content.parse::<toml::Value>() {
+                        if let Some(opts) = v2.get("options") {
+                            if let Some(t) = opts.get("access_token") {
+                                if let Some(s) = t.as_str() {
+                                    if !s.is_empty() {
+                                        config.options.insert("access_token".to_owned(), s.to_owned());
+                                        store = true;
+                                        log::info!("Restored access_token from V2 to V1");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 1. 默认勾选"启用UDP打洞"
         if !config.options.contains_key("enable-udp-punch") {
             config.options.insert("enable-udp-punch".to_owned(), "Y".to_owned());
@@ -2020,6 +2046,17 @@ impl LocalConfig {
     }
 
     pub fn set_option(k: String, v: String) {
+        // 同步 access_token 到 V2 (Config2)，作为 V1 丢失时的备份
+        if k == "access_token" {
+            if let Ok(mut c2) = CONFIG2.write() {
+                if !v.is_empty() {
+                    c2.options.insert("access_token".to_owned(), v.clone());
+                } else {
+                    c2.options.remove("access_token");
+                }
+                c2.store();
+            }
+        }
         if !is_option_can_save(&OVERWRITE_LOCAL_SETTINGS, &k, &DEFAULT_LOCAL_SETTINGS, &v) {
             let mut config = LOCAL_CONFIG.write().unwrap();
             if config.options.remove(&k).is_some() {

@@ -62,8 +62,14 @@ class UserModel {
       }
       refreshingUser = false;
       final status = response.statusCode;
-      if (status == 401 || status == 400) {
-        reset(resetOther: status == 401);
+      if (status == 401) {
+        // access_token 真的失效（401），才清空
+        // 不再清空 400（可能是请求参数问题）
+        reset(resetOther: true);
+        return;
+      } else if (status == 400) {
+        // 400 不清空本地 token，可能是临时网络问题
+        debugPrint('Got 400, keep local access_token, will retry next refresh');
         return;
       }
       final data = json.decode(decode_http_response(response));

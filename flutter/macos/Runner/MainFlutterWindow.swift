@@ -68,7 +68,8 @@ class MainFlutterWindow: NSWindow {
         }
 
         super.awakeFromNib()
-    }
+        // 检查并请求 macOS 权限
+        checkAndRequestMacOSPermissions()    }
 
     override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
         super.order(place, relativeTo: otherWin)
@@ -282,5 +283,35 @@ class MainFlutterWindow: NSWindow {
                     result(FlutterMethodNotImplemented)
                 }
         })
+    }
+    
+    // 检查并请求 macOS 权限（屏幕录制、辅助功能、输入监控）
+    private func checkAndRequestMacOSPermissions() {
+        // 1. 屏幕录制权限检查
+        if #available(macOS 10.15, *) {
+            let hasScreenRecording = CGPreflightScreenCaptureAccess()
+            if !hasScreenRecording {
+                NSLog("[RustDesk] Requesting screen recording permission...")
+                CGRequestScreenCaptureAccess()
+            }
+        }
+        
+        // 2. 辅助功能权限检查 (AXIsProcessTrusted 会弹窗)
+        let hasAccessibility = AXIsProcessTrusted()
+        if !hasAccessibility {
+            NSLog("[RustDesk] Requesting accessibility permission...")
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            AXIsProcessTrustedWithOptions(options)
+        }
+        
+        // 3. 输入监控权限
+        if #available(macOS 10.15, *) {
+            let hasInputMonitoring = IOHIDCheckAccess(IOHIDRequestType(kIOHIDRequestTypeEvent))
+            if hasInputMonitoring != kIOReturnSuccess {
+                NSLog("[RustDesk] Input monitoring permission not granted")
+            }
+        }
+        
+        NSLog("[RustDesk] Permissions check completed")
     }
 }

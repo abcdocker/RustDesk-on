@@ -1659,15 +1659,25 @@ Widget getPlatformImage(String platform, {double size = 50}) {
   if (platform.isEmpty) {
     return Container(width: size, height: size);
   }
+  // 按操作系统映射到 assets 里的 SVG 文件名
+  String fileName;
   if (platform == kPeerPlatformMacOS) {
-    platform = 'mac';
-  } else if (platform != kPeerPlatformLinux &&
-      platform != kPeerPlatformAndroid) {
-    platform = 'win';
+    fileName = 'mac';
+  } else if (platform == kPeerPlatformWindows) {
+    fileName = 'win';
+  } else if (platform.toLowerCase() == 'ios' || 
+             platform.toLowerCase() == 'iphone' ||
+             platform.toLowerCase() == 'ipad') {
+    fileName = 'ios';
+  } else if (platform == kPeerPlatformLinux) {
+    fileName = 'linux';
+  } else if (platform == kPeerPlatformAndroid) {
+    fileName = 'android';
   } else {
-    platform = platform.toLowerCase();
+    // 兜底：未知平台用 windows logo
+    fileName = 'win';
   }
-  return SvgPicture.asset('assets/$platform.svg', height: size, width: size);
+  return SvgPicture.asset('assets/$fileName.svg', height: size, width: size);
 }
 
 class LastWindowPosition {
