@@ -304,10 +304,13 @@ class MainFlutterWindow: NSWindow {
             AXIsProcessTrustedWithOptions(options)
         }
         
-        // 3. 输入监控权限 (无法在 app bundle 内直接查询 IOHID 状态)
-        //    IOHIDCheckAccess / kIOHIDRequestTypeEvent 是私有 API, 在 sandbox app 中不可用
-        //    只做日志提示, 让用户去系统设置手动开启
-        NSLog("[RustDesk] 请在系统设置 > 隐私与安全性 > 输入监控 中授权 RustDesk (如远程时键盘鼠标无响应)")
+        // 3. 输入监控权限
+        if #available(macOS 10.15, *) {
+            let hasInputMonitoring = IOHIDCheckAccess(IOHIDRequestType(kIOHIDRequestTypeEvent))
+            if hasInputMonitoring != kIOReturnSuccess {
+                NSLog("[RustDesk] Input monitoring permission not granted")
+            }
+        }
         
         NSLog("[RustDesk] Permissions check completed")
     }
