@@ -11,7 +11,7 @@ import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/common/widgets/login.dart';
-import 'package:flutter_hbb/common/widgets/peer_tab_page.dart';
+import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -513,46 +513,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           onPressed: () => _showI4TLoginChoices(context),
         );
       }
-      return PopupMenuButton<String>(
-        tooltip: userName,
-        offset: const Offset(0, 42),
-        onSelected: (value) {
-          if (value == 'logout') {
-            logOutConfirmDialog();
-          }
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'user',
-            enabled: false,
-            child: Row(
-              children: [
-                I4TDynamicAvatar(seed: userName, radius: 14),
-                const SizedBox(width: 10),
-                Expanded(child: Text(userName)),
-              ],
-            ),
-          ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(
-            value: 'logout',
-            child: Row(
-              children: [
-                Icon(Icons.logout, size: 18),
-                SizedBox(width: 10),
-                Text('退出'),
-              ],
-            ),
-          ),
-        ],
-        child: Row(
-          children: [
-            I4TDynamicAvatar(seed: userName, radius: 18),
-            const SizedBox(width: 6),
-            const Icon(Icons.keyboard_arrow_down, size: 18),
-          ],
-        ),
-      );
+      return const Offstage();
     });
   }
 
@@ -777,56 +738,108 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       context,
       title: '统一身份认证 / OIDC SSO',
       compact: compact,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock_person_outlined,
-                  size: compact ? 34 : 40, color: const Color(0xFF1266F1)),
-              SizedBox(height: compact ? 8 : 10),
-              Text(
-                '安全便捷的单点登录体验',
-                style: TextStyle(
-                    fontSize: compact ? 13 : 14,
-                    color: const Color(0xFF5B667A)),
-              ),
-              SizedBox(height: compact ? 14 : 18),
-              SizedBox(
-                width: compact ? 240 : 280,
-                height: compact ? 42 : 46,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.lock_open_outlined, size: 18),
-                  label: Text(
-                    '登录 / SSO',
-                    style: TextStyle(
-                        fontSize: compact ? 14 : 15,
-                        fontWeight: FontWeight.w700),
+      child: Obx(() {
+        final userName = gFFI.userModel.userName.value;
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: userName.isEmpty
+                ? _buildI4TLoggedOutSsoHero(context, compact: compact)
+                : _buildI4TLoggedInSsoHero(
+                    context,
+                    userName: userName,
+                    compact: compact,
                   ),
-                  onPressed: () => _showI4TLoginChoices(context),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => openI4TSso(),
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('直接使用 i4T SSO'),
-              ),
-              SizedBox(height: compact ? 6 : 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const _I4TFeatureBadge(icon: Icons.person, text: '统一账号'),
-                  SizedBox(width: compact ? 10 : 14),
-                  const _I4TFeatureBadge(icon: Icons.security, text: '企业认证'),
-                  SizedBox(width: compact ? 10 : 14),
-                  const _I4TFeatureBadge(icon: Icons.bolt, text: '快速访问'),
-                ],
-              ),
-            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildI4TLoggedOutSsoHero(BuildContext context,
+      {required bool compact}) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.lock_person_outlined,
+            size: compact ? 34 : 40, color: const Color(0xFF1266F1)),
+        SizedBox(height: compact ? 8 : 10),
+        Text(
+          '安全便捷的单点登录体验',
+          style: TextStyle(
+              fontSize: compact ? 13 : 14, color: const Color(0xFF5B667A)),
+        ),
+        SizedBox(height: compact ? 14 : 18),
+        SizedBox(
+          width: compact ? 240 : 280,
+          height: compact ? 42 : 46,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.lock_open_outlined, size: 18),
+            label: Text(
+              '登录 / SSO',
+              style: TextStyle(
+                  fontSize: compact ? 14 : 15, fontWeight: FontWeight.w700),
+            ),
+            onPressed: () => _showI4TLoginChoices(context),
           ),
         ),
-      ),
+        TextButton.icon(
+          onPressed: () => openI4TSso(),
+          icon: const Icon(Icons.open_in_new, size: 16),
+          label: const Text('直接使用 i4T SSO'),
+        ),
+        SizedBox(height: compact ? 6 : 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const _I4TFeatureBadge(icon: Icons.person, text: '统一账号'),
+            SizedBox(width: compact ? 10 : 14),
+            const _I4TFeatureBadge(icon: Icons.security, text: '企业认证'),
+            SizedBox(width: compact ? 10 : 14),
+            const _I4TFeatureBadge(icon: Icons.bolt, text: '快速访问'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildI4TLoggedInSsoHero(BuildContext context,
+      {required String userName, required bool compact}) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        I4TDynamicAvatar(seed: userName, radius: compact ? 30 : 34),
+        SizedBox(height: compact ? 10 : 12),
+        Text(
+          userName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: const Color(0xFF0B1B43),
+            fontSize: compact ? 18 : 20,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        SizedBox(height: compact ? 4 : 6),
+        Text(
+          '已登录 i4T SSO 运维单点登录',
+          style: TextStyle(
+            color: const Color(0xFF64748B),
+            fontSize: compact ? 12 : 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: compact ? 14 : 18),
+        SizedBox(
+          width: compact ? 210 : 240,
+          height: compact ? 38 : 42,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.logout, size: 18),
+            label: const Text('退出登录'),
+            onPressed: logOutConfirmDialog,
+          ),
+        ),
+      ],
     );
   }
 
@@ -890,28 +903,76 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget _buildI4TPeerListPanel(BuildContext context, {required bool compact}) {
     return _buildI4TPanel(
       context,
-      title: _peerPanelTitle(),
+      title: '连接主机',
       compact: compact,
       trailing: IconButton(
         tooltip: translate('Refresh'),
         icon: const Icon(Icons.refresh, size: 17),
         onPressed: () => gFFI.abModel.pullAb(force: null, quiet: false),
       ),
-      child: const PeerTabPage(),
+      child: _buildI4THostList(context, compact: compact),
     );
   }
 
-  String _peerPanelTitle() {
-    switch (_i4tSection) {
-      case _I4TDashboardSection.devices:
-        return '设备';
-      case _I4TDashboardSection.addressBook:
-        return '地址簿';
-      case _I4TDashboardSection.recent:
-        return '最近连接';
-      case _I4TDashboardSection.remote:
-        return '地址簿';
-    }
+  Widget _buildI4THostList(BuildContext context, {required bool compact}) {
+    return Obx(() {
+      final userName = gFFI.userModel.userName.value;
+      if (userName.isEmpty) {
+        return Center(
+          child: SizedBox(
+            width: compact ? 190 : 220,
+            height: compact ? 38 : 42,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.person, size: 18),
+              label: const Text('登录后查看主机'),
+              onPressed: () => _showI4TLoginChoices(context),
+            ),
+          ),
+        );
+      }
+      if (gFFI.userModel.networkError.isNotEmpty) {
+        return Center(
+          child: Text(
+            '需要登录才可以连接',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.error,
+              fontSize: compact ? 12 : 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
+      }
+      return Column(
+        children: [
+          SizedBox(
+            height: compact ? 34 : 38,
+            child: TextField(
+              controller: peerSearchTextController,
+              onChanged: (value) => peerSearchText.value = value,
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 18),
+                hintText: '搜索连接主机',
+                hintStyle: const TextStyle(fontSize: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE3EAF6)),
+                ),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ).workaroundFreezeLinuxMint(),
+          ),
+          SizedBox(height: compact ? 8 : 10),
+          Expanded(
+            child: AddressBookPeersView(
+              menuPadding: const EdgeInsets.symmetric(horizontal: 6),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildI4TFieldLabel(String text) {
