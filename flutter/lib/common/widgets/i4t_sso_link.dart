@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -233,7 +234,7 @@ class I4TSsoButton extends StatelessWidget {
   }
 }
 
-class I4TDynamicAvatar extends StatelessWidget {
+class I4TDynamicAvatar extends StatefulWidget {
   const I4TDynamicAvatar({
     Key? key,
     required this.seed,
@@ -244,14 +245,46 @@ class I4TDynamicAvatar extends StatelessWidget {
   final double radius;
 
   @override
+  State<I4TDynamicAvatar> createState() => _I4TDynamicAvatarState();
+}
+
+class _I4TDynamicAvatarState extends State<I4TDynamicAvatar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final int _sessionSalt;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionSalt = DateTime.now().microsecondsSinceEpoch & 0xffff;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final size = radius * 2;
+    final size = widget.radius * 2;
     return ClipOval(
       child: SizedBox(
         width: size,
         height: size,
-        child: CustomPaint(
-          painter: _I4TAvatarPainter(seed),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => CustomPaint(
+            painter: _I4TAvatarPainter(
+              widget.seed,
+              phase: _controller.value,
+              sessionSalt: _sessionSalt,
+            ),
+          ),
         ),
       ),
     );
@@ -259,12 +292,18 @@ class I4TDynamicAvatar extends StatelessWidget {
 }
 
 class _I4TAvatarPainter extends CustomPainter {
-  _I4TAvatarPainter(this.seed);
+  _I4TAvatarPainter(
+    this.seed, {
+    required this.phase,
+    required this.sessionSalt,
+  });
 
   final String seed;
+  final double phase;
+  final int sessionSalt;
 
   int get _hash {
-    var hash = 0x45d9f3b;
+    var hash = 0x45d9f3b ^ sessionSalt;
     for (var i = 0; i < seed.length; i++) {
       hash = 0x1fffffff & (hash + seed.codeUnitAt(i));
       hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
@@ -295,6 +334,7 @@ class _I4TAvatarPainter extends CustomPainter {
       ).createShader(rect);
     canvas.drawRect(rect, bgPaint);
 
+    final radians = phase * math.pi * 2;
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = size.width * 0.11
@@ -302,7 +342,7 @@ class _I4TAvatarPainter extends CustomPainter {
       ..color = Colors.white.withOpacity(0.38);
     canvas.drawArc(
       rect.deflate(size.width * 0.18),
-      -0.85,
+      -0.85 + radians,
       4.45,
       false,
       ringPaint,
@@ -311,12 +351,18 @@ class _I4TAvatarPainter extends CustomPainter {
     final dotPaint = Paint()..color = warm;
     final dotRadius = size.width * 0.12;
     canvas.drawCircle(
-      Offset(size.width * 0.68, size.height * 0.34),
+      Offset(
+        size.width * (0.62 + math.cos(radians) * 0.08),
+        size.height * (0.35 + math.sin(radians) * 0.08),
+      ),
       dotRadius,
       dotPaint,
     );
     canvas.drawCircle(
-      Offset(size.width * 0.38, size.height * 0.62),
+      Offset(
+        size.width * (0.38 + math.cos(radians + math.pi) * 0.05),
+        size.height * (0.62 + math.sin(radians + math.pi) * 0.05),
+      ),
       dotRadius * 0.68,
       Paint()..color = Colors.white.withOpacity(0.5),
     );
@@ -324,6 +370,8 @@ class _I4TAvatarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _I4TAvatarPainter oldDelegate) {
-    return oldDelegate.seed != seed;
+    return oldDelegate.seed != seed ||
+        oldDelegate.phase != phase ||
+        oldDelegate.sessionSalt != sessionSalt;
   }
 }

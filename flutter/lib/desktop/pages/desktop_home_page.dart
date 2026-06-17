@@ -85,6 +85,18 @@ class _I4TFeatureBadge extends StatelessWidget {
   }
 }
 
+class _I4TMacPermissionAction {
+  const _I4TMacPermissionAction({
+    required this.name,
+    required this.buttonText,
+    required this.onPressed,
+  });
+
+  final String name;
+  final String buttonText;
+  final VoidCallback onPressed;
+}
+
 class _DesktopHomePageState extends State<DesktopHomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final _leftPaneScrollController = ScrollController();
@@ -256,6 +268,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           final sidebarWidth = compact ? 158.0 : 176.0;
           final localWidth = compact ? 236.0 : 260.0;
           final rightWidth = compact ? 292.0 : 340.0;
+          final macPermissionNotice =
+              _buildI4TMacPermissionNotice(context, compact: compact);
 
           return Container(
             decoration: const BoxDecoration(
@@ -275,6 +289,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                       children: [
                         _buildI4TTopBar(context, compact: compact),
                         SizedBox(height: gap),
+                        if (macPermissionNotice != null) ...[
+                          macPermissionNotice,
+                          SizedBox(height: gap),
+                        ],
                         Expanded(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -389,9 +407,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           _buildI4TNavItem(Icons.history_outlined, '最近连接',
               selected: _i4tSection == _I4TDashboardSection.recent,
               onTap: () => _setI4TSection(_I4TDashboardSection.recent)),
-          _buildI4TNavItem(Icons.admin_panel_settings_outlined, '权限管理',
-              onTap: () =>
-                  DesktopSettingPage.switch2page(SettingsTabKey.safety)),
           const Spacer(),
           _buildI4TNavItem(Icons.settings_outlined, '设置',
               onTap: DesktopTabPage.onAddSetting),
@@ -407,12 +422,20 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     setState(() => _i4tSection = section);
     switch (section) {
       case _I4TDashboardSection.remote:
+        if (gFFI.userModel.isLogin) {
+          _selectI4TPeerTab(PeerTabIndex.ab);
+          gFFI.abModel.pullAb(force: null, quiet: false);
+        }
         break;
       case _I4TDashboardSection.devices:
-        if (gFFI.peerTabModel.isVisibleEnabled[PeerTabIndex.group.index]) {
+        if (gFFI.userModel.isLogin &&
+            gFFI.peerTabModel.isVisibleEnabled[PeerTabIndex.group.index]) {
           _selectI4TPeerTab(PeerTabIndex.group);
+          gFFI.groupModel.pull(force: true, quiet: false);
         } else {
           _selectI4TPeerTab(PeerTabIndex.lan);
+          bind.mainLoadLanPeers();
+          bind.mainDiscover();
         }
         break;
       case _I4TDashboardSection.addressBook:
@@ -515,6 +538,110 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       }
       return const Offstage();
     });
+  }
+
+  Widget? _buildI4TMacPermissionNotice(BuildContext context,
+      {required bool compact}) {
+    if (!isMacOS) return null;
+    final actions = <_I4TMacPermissionAction>[];
+    final isOutgoingOnly = bind.isOutgoingOnly();
+    if (!isOutgoingOnly && !bind.mainIsCanScreenRecording(prompt: false)) {
+      actions.add(_I4TMacPermissionAction(
+        name: '屏幕录制',
+        buttonText: '打开录屏权限',
+        onPressed: () {
+          bind.mainIsCanScreenRecording(prompt: true);
+          watchIsCanScreenRecording = true;
+          setState(() {});
+        },
+      ));
+    }
+    if (!isOutgoingOnly && !bind.mainIsProcessTrusted(prompt: false)) {
+      actions.add(_I4TMacPermissionAction(
+        name: '辅助功能',
+        buttonText: '打开辅助功能',
+        onPressed: () {
+          bind.mainIsProcessTrusted(prompt: true);
+          watchIsProcessTrust = true;
+          setState(() {});
+        },
+      ));
+    }
+    if (!bind.mainIsCanInputMonitoring(prompt: false)) {
+      actions.add(_I4TMacPermissionAction(
+        name: '输入监控',
+        buttonText: '打开输入监控',
+        onPressed: () {
+          bind.mainIsCanInputMonitoring(prompt: true);
+          watchIsInputMonitoring = true;
+          setState(() {});
+        },
+      ));
+    }
+    if (!isOutgoingOnly &&
+        !svcStopped.value &&
+        bind.mainIsInstalled() &&
+        !bind.mainIsInstalledDaemon(prompt: false)) {
+      actions.add(_I4TMacPermissionAction(
+        name: '后台服务',
+        buttonText: '安装服务',
+        onPressed: () {
+          bind.mainIsInstalledDaemon(prompt: true);
+          setState(() {});
+        },
+      ));
+    }
+    if (actions.isEmpty) return null;
+
+    final primary = actions.first;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFACC15).withOpacity(0.55)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.privacy_tip_outlined,
+              size: 20, color: Color(0xFFB45309)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '缺少 ${actions.map((e) => e.name).join('、')} 权限，Mac 授权后请完全退出并重新打开 RustDesk，远程桌面才会生效。',
+              maxLines: compact ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: const Color(0xFF7C2D12),
+                fontSize: compact ? 12 : 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: compact ? 30 : 32,
+            child: OutlinedButton(
+              onPressed: primary.onPressed,
+              child: Text(
+                primary.buttonText,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            tooltip: '重新检测',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.refresh, size: 18),
+            onPressed: () => setState(() {}),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showI4TLoginChoices(BuildContext context) async {
@@ -903,21 +1030,60 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget _buildI4TPeerListPanel(BuildContext context, {required bool compact}) {
     return _buildI4TPanel(
       context,
-      title: '连接主机',
+      title: _i4tPeerPanelTitle,
       compact: compact,
       trailing: IconButton(
         tooltip: translate('Refresh'),
         icon: const Icon(Icons.refresh, size: 17),
-        onPressed: () => gFFI.abModel.pullAb(force: null, quiet: false),
+        onPressed: _refreshI4TPeerSection,
       ),
       child: _buildI4THostList(context, compact: compact),
     );
   }
 
+  String get _i4tPeerPanelTitle {
+    switch (_i4tSection) {
+      case _I4TDashboardSection.remote:
+        return '连接主机';
+      case _I4TDashboardSection.devices:
+        return '设备';
+      case _I4TDashboardSection.addressBook:
+        return '地址簿';
+      case _I4TDashboardSection.recent:
+        return '最近连接';
+    }
+  }
+
+  bool get _i4tPeerSectionNeedsLogin {
+    return _i4tSection == _I4TDashboardSection.remote ||
+        _i4tSection == _I4TDashboardSection.addressBook;
+  }
+
+  void _refreshI4TPeerSection() {
+    switch (_i4tSection) {
+      case _I4TDashboardSection.remote:
+      case _I4TDashboardSection.addressBook:
+        gFFI.abModel.pullAb(force: null, quiet: false);
+        break;
+      case _I4TDashboardSection.devices:
+        if (gFFI.userModel.isLogin &&
+            gFFI.peerTabModel.isVisibleEnabled[PeerTabIndex.group.index]) {
+          gFFI.groupModel.pull(force: true, quiet: false);
+        } else {
+          bind.mainLoadLanPeers();
+          bind.mainDiscover();
+        }
+        break;
+      case _I4TDashboardSection.recent:
+        bind.mainLoadRecentPeers();
+        break;
+    }
+  }
+
   Widget _buildI4THostList(BuildContext context, {required bool compact}) {
     return Obx(() {
       final userName = gFFI.userModel.userName.value;
-      if (userName.isEmpty) {
+      if (_i4tPeerSectionNeedsLogin && userName.isEmpty) {
         return Center(
           child: SizedBox(
             width: compact ? 190 : 220,
@@ -930,7 +1096,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ),
         );
       }
-      if (gFFI.userModel.networkError.isNotEmpty) {
+      if (userName.isNotEmpty &&
+          gFFI.userModel.networkError.isNotEmpty &&
+          _i4tSection != _I4TDashboardSection.recent) {
         return Center(
           child: Text(
             '需要登录才可以连接',
@@ -944,35 +1112,55 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       }
       return Column(
         children: [
-          SizedBox(
-            height: compact ? 34 : 38,
-            child: TextField(
-              controller: peerSearchTextController,
-              onChanged: (value) => peerSearchText.value = value,
-              decoration: InputDecoration(
-                isDense: true,
-                prefixIcon: const Icon(Icons.search, size: 18),
-                hintText: '搜索连接主机',
-                hintStyle: const TextStyle(fontSize: 12),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFE3EAF6)),
-                ),
-              ),
-              style: const TextStyle(fontSize: 13),
-            ).workaroundFreezeLinuxMint(),
-          ),
+          _buildI4TPeerSearchField(compact: compact),
           SizedBox(height: compact ? 8 : 10),
-          Expanded(
-            child: AddressBookPeersView(
-              menuPadding: const EdgeInsets.symmetric(horizontal: 6),
-            ),
-          ),
+          Expanded(child: _buildI4TPeerListForSection()),
         ],
       );
     });
+  }
+
+  Widget _buildI4TPeerSearchField({required bool compact}) {
+    return SizedBox(
+      height: compact ? 34 : 38,
+      child: TextField(
+        controller: peerSearchTextController,
+        onChanged: (value) {
+          peerSearchText.value = value;
+          gFFI.groupModel.searchAccessibleItemNameText.value = value;
+        },
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: const Icon(Icons.search, size: 18),
+          hintText: '搜索$_i4tPeerPanelTitle',
+          hintStyle: const TextStyle(fontSize: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE3EAF6)),
+          ),
+        ),
+        style: const TextStyle(fontSize: 13),
+      ).workaroundFreezeLinuxMint(),
+    );
+  }
+
+  Widget _buildI4TPeerListForSection() {
+    const padding = EdgeInsets.symmetric(horizontal: 6);
+    switch (_i4tSection) {
+      case _I4TDashboardSection.remote:
+      case _I4TDashboardSection.addressBook:
+        return AddressBookPeersView(menuPadding: padding);
+      case _I4TDashboardSection.devices:
+        if (gFFI.userModel.isLogin &&
+            gFFI.peerTabModel.isVisibleEnabled[PeerTabIndex.group.index]) {
+          return MyGroupPeerView(menuPadding: padding);
+        }
+        return DiscoveredPeersView(menuPadding: padding);
+      case _I4TDashboardSection.recent:
+        return RecentPeersView(menuPadding: padding);
+    }
   }
 
   Widget _buildI4TFieldLabel(String text) {
