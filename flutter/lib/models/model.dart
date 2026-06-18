@@ -897,6 +897,9 @@ class FfiModel with ChangeNotifier {
     final normalizedText = (text ?? '').toString().trim().toLowerCase();
     if (normalizedText == 'connection failed, please login!' ||
         normalizedText.contains('please login')) {
+      // The rendezvous server rejected the account token. Keep the global
+      // account card and the connection flow on the same logged-out state.
+      unawaited(parent.target!.userModel.reset(resetOther: true));
       showMsgBox(sessionId, 'info', '需要登录', '需要登录才可以连接', '', false,
           dialogManager,
           hasCancel: false);

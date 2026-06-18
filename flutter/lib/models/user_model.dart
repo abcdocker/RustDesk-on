@@ -36,6 +36,11 @@ class UserModel {
     networkError.value = '';
     final token = bind.mainGetLocalOption(key: 'access_token');
     if (token == '') {
+      // The access token is the source of truth for the account session. Do not
+      // keep showing cached user information when the connection layer will
+      // treat the client as logged out.
+      userName.value = '';
+      isAdmin.value = false;
       await updateOtherModels();
       return;
     }
@@ -109,13 +114,16 @@ class UserModel {
   }
 
   Future<void> reset({bool resetOther = false}) async {
+    // Update the UI first so every account entry point switches to logged out
+    // together, even if persisting the reset takes a moment.
+    userName.value = '';
+    isAdmin.value = false;
     await bind.mainSetLocalOption(key: 'access_token', value: '');
     await bind.mainSetLocalOption(key: 'user_info', value: '');
     if (resetOther) {
       await gFFI.abModel.reset();
       await gFFI.groupModel.reset();
     }
-    userName.value = '';
   }
 
   _parseAndUpdateUser(UserPayload user) {

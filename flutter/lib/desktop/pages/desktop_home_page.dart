@@ -1097,13 +1097,24 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           gFFI.userModel.networkError.isNotEmpty &&
           _i4tSection != _I4TDashboardSection.recent) {
         return Center(
-          child: Text(
-            '需要登录才可以连接',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontSize: compact ? 12 : 13,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '已登录，但主机列表同步失败',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: compact ? 12 : 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: gFFI.userModel.refreshCurrentUser,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('重试'),
+              ),
+            ],
           ),
         );
       }
