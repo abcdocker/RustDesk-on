@@ -157,8 +157,22 @@ void runMainApp(bool startService) async {
   WindowOptions windowOptions = getHiddenTitleBarWindowOptions(
       isMainWindow: true, alwaysOnTop: alwaysOnTop);
   windowManager.waitUntilReadyToShow(windowOptions, () async {
+    const minimumMainWindowSize = Size(900, 620);
+    await windowManager.setMinimumSize(minimumMainWindowSize);
     // Restore the location of the main window before window hide or show.
     await restoreWindowPosition(WindowType.Main);
+    final currentSize = await windowManager.getSize();
+    if (currentSize.width < minimumMainWindowSize.width ||
+        currentSize.height < minimumMainWindowSize.height) {
+      await windowManager.setSize(Size(
+        currentSize.width < minimumMainWindowSize.width
+            ? minimumMainWindowSize.width
+            : currentSize.width,
+        currentSize.height < minimumMainWindowSize.height
+            ? minimumMainWindowSize.height
+            : currentSize.height,
+      ));
+    }
     // Check the startup argument, if we successfully handle the argument, we keep the main window hidden.
     final handledByUniLinks = await initUniLinks();
     debugPrint("handled by uni links: $handledByUniLinks");

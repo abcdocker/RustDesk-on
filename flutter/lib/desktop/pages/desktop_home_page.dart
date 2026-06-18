@@ -262,14 +262,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 1180;
-          final showRightPanel = constraints.maxWidth >= 980;
           final contentPadding = compact ? 12.0 : 16.0;
           final gap = compact ? 10.0 : 14.0;
           final sidebarWidth = compact ? 158.0 : 176.0;
           final localWidth = compact ? 236.0 : 260.0;
-          final rightWidth = compact ? 292.0 : 340.0;
           final macPermissionNotice =
-              _buildI4TMacPermissionNotice(context, compact: compact);
+              _i4tSection == _I4TDashboardSection.remote
+                  ? _buildI4TMacPermissionNotice(context, compact: compact)
+                  : null;
 
           return Container(
             decoration: const BoxDecoration(
@@ -294,55 +294,17 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           SizedBox(height: gap),
                         ],
                         Expanded(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              SizedBox(
-                                width: localWidth,
-                                child: _buildI4TLocalCard(
+                          child: _i4tSection == _I4TDashboardSection.remote
+                              ? _buildI4TRemoteSection(
+                                  context,
+                                  compact: compact,
+                                  localWidth: localWidth,
+                                  gap: gap,
+                                )
+                              : _buildI4TPeerListPanel(
                                   context,
                                   compact: compact,
                                 ),
-                              ),
-                              SizedBox(width: gap),
-                              Expanded(
-                                flex: 5,
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      flex: compact ? 3 : 4,
-                                      child: _buildI4TSsoHero(
-                                        context,
-                                        compact: compact,
-                                      ),
-                                    ),
-                                    SizedBox(height: gap),
-                                    Expanded(
-                                      flex: compact ? 4 : 3,
-                                      child: _buildI4TPanel(
-                                        context,
-                                        title: '连接到远程设备',
-                                        compact: compact,
-                                        child: _buildI4TConnectCard(
-                                          context,
-                                          compact: compact,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (showRightPanel) SizedBox(width: gap),
-                              if (showRightPanel)
-                                SizedBox(
-                                  width: rightWidth,
-                                  child: _buildI4TPeerListPanel(
-                                    context,
-                                    compact: compact,
-                                  ),
-                                ),
-                            ],
-                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -372,6 +334,44 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           );
         },
       ),
+    );
+  }
+
+  Widget _buildI4TRemoteSection(
+    BuildContext context, {
+    required bool compact,
+    required double localWidth,
+    required double gap,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: localWidth,
+          child: _buildI4TLocalCard(context, compact: compact),
+        ),
+        SizedBox(width: gap),
+        Expanded(
+          child: Column(
+            children: [
+              Expanded(
+                flex: 4,
+                child: _buildI4TSsoHero(context, compact: compact),
+              ),
+              SizedBox(height: gap),
+              Expanded(
+                flex: 3,
+                child: _buildI4TPanel(
+                  context,
+                  title: '连接到远程设备',
+                  compact: compact,
+                  child: _buildI4TConnectCard(context, compact: compact),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -422,10 +422,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     setState(() => _i4tSection = section);
     switch (section) {
       case _I4TDashboardSection.remote:
-        if (gFFI.userModel.isLogin) {
-          _selectI4TPeerTab(PeerTabIndex.ab);
-          gFFI.abModel.pullAb(force: null, quiet: false);
-        }
         break;
       case _I4TDashboardSection.devices:
         if (gFFI.userModel.isLogin &&
@@ -636,6 +632,19 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               ),
             ),
           ),
+          if (actions.length > 1)
+            PopupMenuButton<int>(
+              tooltip: '其他系统权限',
+              icon: const Icon(Icons.expand_more, size: 18),
+              onSelected: (index) => actions[index].onPressed(),
+              itemBuilder: (context) => [
+                for (var index = 1; index < actions.length; index++)
+                  PopupMenuItem<int>(
+                    value: index,
+                    child: Text(actions[index].buttonText),
+                  ),
+              ],
+            ),
           const SizedBox(width: 6),
           IconButton(
             tooltip: '重新检测',
@@ -919,17 +928,19 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           icon: const Icon(Icons.open_in_new, size: 16),
           label: const Text('直接使用 i4T SSO'),
         ),
-        SizedBox(height: compact ? 6 : 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const _I4TFeatureBadge(icon: Icons.person, text: '统一账号'),
-            SizedBox(width: compact ? 10 : 14),
-            const _I4TFeatureBadge(icon: Icons.security, text: '企业认证'),
-            SizedBox(width: compact ? 10 : 14),
-            const _I4TFeatureBadge(icon: Icons.bolt, text: '快速访问'),
-          ],
-        ),
+        if (!compact) ...[
+          const SizedBox(height: 8),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _I4TFeatureBadge(icon: Icons.person, text: '统一账号'),
+              SizedBox(width: 14),
+              _I4TFeatureBadge(icon: Icons.security, text: '企业认证'),
+              SizedBox(width: 14),
+              _I4TFeatureBadge(icon: Icons.bolt, text: '快速访问'),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -1048,19 +1059,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   String get _i4tPeerPanelTitle {
     switch (_i4tSection) {
       case _I4TDashboardSection.remote:
-        return '连接主机';
+        return '远程连接';
       case _I4TDashboardSection.devices:
         return '设备';
       case _I4TDashboardSection.addressBook:
         return '地址簿';
       case _I4TDashboardSection.recent:
-        return '最近连接';
+        return '连接主机 / 最近连接';
     }
-  }
-
-  bool get _i4tPeerSectionNeedsLogin {
-    // 统一身份验证登录只在"远程连接"section 需要
-    return _i4tSection == _I4TDashboardSection.remote;
   }
 
   void _refreshI4TPeerSection() {
@@ -1087,19 +1093,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget _buildI4THostList(BuildContext context, {required bool compact}) {
     return Obx(() {
       final userName = gFFI.userModel.userName.value;
-      if (_i4tPeerSectionNeedsLogin && userName.isEmpty) {
-        return Center(
-          child: SizedBox(
-            width: compact ? 190 : 220,
-            height: compact ? 38 : 42,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.person, size: 18),
-              label: const Text('登录后查看主机'),
-              onPressed: () => _showI4TLoginChoices(context),
-            ),
-          ),
-        );
-      }
       if (userName.isNotEmpty &&
           gFFI.userModel.networkError.isNotEmpty &&
           _i4tSection != _I4TDashboardSection.recent) {
@@ -2044,7 +2037,7 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
   final maxLength = bind.mainMaxEncryptLen();
 
   gFFI.dialogManager.show((setState, close, context) {
-    submit() {
+    submit() async {
       setState(() {
         errMsg0 = "";
         errMsg1 = "";
@@ -2067,7 +2060,13 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
         });
         return;
       }
-      bind.mainSetPermanentPassword(password: pass);
+      final saved = await gFFI.serverModel.setPermanentPassword(pass);
+      if (!saved) {
+        setState(() {
+          errMsg0 = '密码保存失败，请确认 RustDesk 后台服务正在运行后重试。';
+        });
+        return;
+      }
       if (pass.isNotEmpty) {
         notEmptyCallback?.call();
       }

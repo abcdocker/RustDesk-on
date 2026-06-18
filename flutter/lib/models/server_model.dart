@@ -473,13 +473,26 @@ class ServerModel with ChangeNotifier {
 
   Future<bool> setPermanentPassword(String newPW) async {
     await bind.mainSetPermanentPassword(password: newPW);
-    await Future.delayed(Duration(milliseconds: 500));
-    final pw = await bind.mainGetPermanentPassword();
-    if (newPW == pw) {
-      return true;
-    } else {
-      return false;
+    for (var attempt = 0; attempt < 8; attempt++) {
+      await Future.delayed(Duration(milliseconds: 250));
+      final savedPassword = await bind.mainGetPermanentPassword();
+      if (newPW == savedPassword) {
+        if (newPW.isNotEmpty) {
+          final method =
+              await bind.mainGetOption(key: kOptionVerificationMethod);
+          if (method == kUseTemporaryPassword) {
+            await setVerificationMethod(kUseBothPasswords);
+          }
+          final mode = await bind.mainGetOption(key: kOptionApproveMode);
+          if (mode == 'click') {
+            await setApproveMode(defaultOptionApproveMode);
+          }
+        }
+        await updatePasswordModel();
+        return true;
+      }
     }
+    return false;
   }
 
   fetchID() async {

@@ -31,7 +31,11 @@ extern "C" bool IsCanScreenRecording(bool prompt) {
     #else
     bool res = CGPreflightScreenCaptureAccess();
     if (!res && prompt) {
-        CGRequestScreenCaptureAccess();
+        res = CGRequestScreenCaptureAccess();
+        if (!res) {
+            NSString *urlString = @"x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
+            [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:urlString]];
+        }
     }
     return res;
     #endif
@@ -51,17 +55,15 @@ extern "C" bool InputMonitoringAuthStatus(bool prompt) {
             case kIOHIDAccessTypeGranted:
                 return true;
                 break;
-            case kIOHIDAccessTypeDenied: {
-                if (prompt) {
-                    NSString *urlString = @"x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent";
-                    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:urlString]];
-                }
-                break;
-            }
+            case kIOHIDAccessTypeDenied:
             case kIOHIDAccessTypeUnknown: {
                 if (prompt) {
-                    bool result = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent);
-                    NSLog(@"IOHIDRequestAccess result = %d", result);
+                    if (theType == kIOHIDAccessTypeUnknown) {
+                        bool result = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent);
+                        NSLog(@"IOHIDRequestAccess result = %d", result);
+                    }
+                    NSString *urlString = @"x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent";
+                    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:urlString]];
                 }
                 break;
             }

@@ -68,8 +68,7 @@ class MainFlutterWindow: NSWindow {
         }
 
         super.awakeFromNib()
-        // 检查并请求 macOS 权限
-        checkAndRequestMacOSPermissions()    }
+    }
 
     override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
         super.order(place, relativeTo: otherWin)
@@ -285,30 +284,4 @@ class MainFlutterWindow: NSWindow {
         })
     }
     
-    // 检查并请求 macOS 权限（屏幕录制、辅助功能、输入监控）
-    private func checkAndRequestMacOSPermissions() {
-        // 1. 屏幕录制权限检查
-        if #available(macOS 10.15, *) {
-            let hasScreenRecording = CGPreflightScreenCaptureAccess()
-            if !hasScreenRecording {
-                NSLog("[RustDesk] Requesting screen recording permission...")
-                CGRequestScreenCaptureAccess()
-            }
-        }
-        
-        // 2. 辅助功能权限检查 (AXIsProcessTrusted 会弹窗)
-        let hasAccessibility = AXIsProcessTrusted()
-        if !hasAccessibility {
-            NSLog("[RustDesk] Requesting accessibility permission...")
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            AXIsProcessTrustedWithOptions(options)
-        }
-        
-        // 3. 输入监控权限 (无法在 app bundle 内直接查询 IOHID 状态)
-        //    IOHIDCheckAccess / kIOHIDRequestTypeEvent 是私有 API, 在 sandbox app 中不可用
-        //    只做日志提示, 让用户去系统设置手动开启
-        NSLog("[RustDesk] 请在系统设置 > 隐私与安全性 > 输入监控 中授权 RustDesk (如远程时键盘鼠标无响应)")
-        
-        NSLog("[RustDesk] Permissions check completed")
-    }
 }

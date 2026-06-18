@@ -94,7 +94,17 @@ fn unsafe_is_process_trusted(prompt: bool) -> bool {
             value,
             kAXTrustedCheckOptionPrompt as _,
         );
-        AXIsProcessTrustedWithOptions(options as _) == YES
+        let trusted = AXIsProcessTrustedWithOptions(options as _) == YES;
+        if !trusted && prompt {
+            Command::new("open")
+                .arg(concat!(
+                    "x-apple.systempreferences:com.apple.preference.security?",
+                    "Privacy_Accessibility"
+                ))
+                .spawn()
+                .ok();
+        }
+        trusted
     }
 }
 
