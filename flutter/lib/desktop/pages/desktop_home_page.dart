@@ -97,6 +97,22 @@ class _I4TMacPermissionAction {
   final VoidCallback onPressed;
 }
 
+class _I4TNetworkStatus {
+  const _I4TNetworkStatus({
+    required this.label,
+    required this.compactLabel,
+    required this.icon,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  final String label;
+  final String compactLabel;
+  final IconData icon;
+  final Color color;
+  final Color backgroundColor;
+}
+
 class _DesktopHomePageState extends State<DesktopHomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final _leftPaneScrollController = ScrollController();
@@ -513,8 +529,100 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               ),
             ),
           ),
+          _buildI4TNetworkStatus(compact: compact),
+          SizedBox(width: compact ? 6 : 10),
           _buildI4TAccountMenu(context),
         ],
+      ),
+    );
+  }
+
+  _I4TNetworkStatus _resolveI4TNetworkStatus(
+    ServerModel model, {
+    required bool hasApiError,
+  }) {
+    if (svcStopped.value) {
+      return const _I4TNetworkStatus(
+        label: 'RustDesk 服务已停止',
+        compactLabel: '服务停止',
+        icon: Icons.power_settings_new,
+        color: Color(0xFFB91C1C),
+        backgroundColor: Color(0xFFFEE2E2),
+      );
+    }
+    if (hasApiError) {
+      return const _I4TNetworkStatus(
+        label: 'RustDesk 网络异常',
+        compactLabel: '网络异常',
+        icon: Icons.cloud_off_outlined,
+        color: Color(0xFFB91C1C),
+        backgroundColor: Color(0xFFFEE2E2),
+      );
+    }
+    switch (model.connectStatus) {
+      case 1:
+        return const _I4TNetworkStatus(
+          label: 'ID 服务已连接',
+          compactLabel: 'ID 已连接',
+          icon: Icons.cloud_done_outlined,
+          color: Color(0xFF15803D),
+          backgroundColor: Color(0xFFDCFCE7),
+        );
+      case 0:
+        return const _I4TNetworkStatus(
+          label: '正在连接 ID 服务',
+          compactLabel: '正在连接',
+          icon: Icons.sync,
+          color: Color(0xFFB45309),
+          backgroundColor: Color(0xFFFEF3C7),
+        );
+      default:
+        return const _I4TNetworkStatus(
+          label: 'ID 服务未连接',
+          compactLabel: 'ID 未连接',
+          icon: Icons.cloud_off_outlined,
+          color: Color(0xFFB91C1C),
+          backgroundColor: Color(0xFFFEE2E2),
+        );
+    }
+  }
+
+  Widget _buildI4TNetworkStatus({required bool compact}) {
+    return Obx(
+      () => Consumer<ServerModel>(
+        builder: (context, model, _) {
+          final status = _resolveI4TNetworkStatus(
+            model,
+            hasApiError: gFFI.userModel.networkError.isNotEmpty,
+          );
+          return Tooltip(
+            message: status.label,
+            child: Container(
+              height: compact ? 30 : 32,
+              padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 11),
+              decoration: BoxDecoration(
+                color: status.backgroundColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: status.color.withOpacity(0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(status.icon, size: 16, color: status.color),
+                  const SizedBox(width: 6),
+                  Text(
+                    compact ? status.compactLabel : status.label,
+                    style: TextStyle(
+                      color: status.color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -842,17 +950,27 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ],
         ),
         const Spacer(),
-        const Row(
-          children: [
-            Icon(Icons.check_circle, size: 16, color: Color(0xFF22C55E)),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '就绪，可发起远程连接',
-                style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
-              ),
-            ),
-          ],
+        Obx(
+          () => Consumer<ServerModel>(
+            builder: (context, model, _) {
+              final status = _resolveI4TNetworkStatus(
+                model,
+                hasApiError: gFFI.userModel.networkError.isNotEmpty,
+              );
+              return Row(
+                children: [
+                  Icon(status.icon, size: 16, color: status.color),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      status.label,
+                      style: TextStyle(color: status.color, fontSize: 12),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
