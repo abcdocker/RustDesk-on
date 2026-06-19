@@ -793,7 +793,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget _buildI4TLocalCard(BuildContext context, {required bool compact}) {
     return Consumer<ServerModel>(
       builder: (context, model, _) {
-        final showOneTime = model.approveMode != 'click' &&
+        final serviceStopped = svcStopped.value;
+        final showOneTime = !serviceStopped &&
+            model.approveMode != 'click' &&
             model.verificationMethod != kUsePermanentPassword;
         return _buildI4TPanel(
           context,
@@ -833,25 +835,58 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 width: double.infinity,
                 height: compact ? 34 : 36,
                 child: OutlinedButton.icon(
-                  icon: Icon(showOneTime ? Icons.refresh : Icons.password,
+                  icon: Icon(
+                      serviceStopped
+                          ? Icons.power_settings_new
+                          : showOneTime
+                              ? Icons.refresh
+                              : Icons.password,
                       size: 16),
                   label: Text(
-                    showOneTime ? '刷新一次性密码' : '启用一次性密码',
+                    serviceStopped
+                        ? '启动后台服务'
+                        : showOneTime
+                            ? '刷新一次性密码'
+                            : '启用一次性密码',
                     style: const TextStyle(fontSize: 12),
                   ),
-                  onPressed: _refreshI4TTemporaryPassword,
+                  onPressed: serviceStopped
+                      ? _startI4TService
+                      : _refreshI4TTemporaryPassword,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                showOneTime ? '验证码自动刷新，可一键复制分享' : '当前使用点击确认或永久密码验证',
-                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                serviceStopped
+                    ? '后台服务已停止，当前设备无法被远程连接'
+                    : showOneTime
+                        ? '验证码自动刷新，可一键复制分享'
+                        : '当前使用点击确认或永久密码验证',
+                style: TextStyle(
+                  color: serviceStopped
+                      ? const Color(0xFFB91C1C)
+                      : const Color(0xFF64748B),
+                  fontSize: 12,
+                  fontWeight:
+                      serviceStopped ? FontWeight.w600 : FontWeight.normal,
+                ),
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _startI4TService() async {
+    await start_service(true);
+    final stopped = await mainGetBoolOption(kOptionStopService);
+    svcStopped.value = stopped;
+    await gFFI.serverModel.updatePasswordModel();
+    if (mounted) {
+      setState(() {});
+    }
+    showToast(stopped ? '后台服务启动失败，请到设置中重试' : '后台服务已启动');
   }
 
   Future<void> _refreshI4TTemporaryPassword() async {
