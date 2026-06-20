@@ -1,0 +1,59 @@
+#!/bin/zsh
+
+set -u
+
+HELPER_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+SOURCE_APP="${HELPER_DIR}/RustDesk.app"
+DEST_APP="/Applications/RustDesk.app"
+
+show_error() {
+  /usr/bin/osascript -e \
+    "display dialog \"$1\" with title \"i4T 安装与修复\" buttons {\"确定\"} default button \"确定\" with icon stop"
+}
+
+if [ ! -d "$SOURCE_APP" ]
+then
+  show_error "未在安装镜像中找到 RustDesk.app，请重新下载完整安装包。"
+  exit 1
+fi
+
+if ! /usr/bin/osascript - "$SOURCE_APP" "$DEST_APP" <<'APPLESCRIPT'
+on run argv
+    set sourceApp to item 1 of argv
+    set destinationApp to item 2 of argv
+
+    set response to display dialog ¬
+        "将 RustDesk 安装到“应用程序”，并修复无法打开的问题。\n\n操作包括：清除下载隔离标记、补充执行权限，并仅在签名无效时进行临时签名。" ¬
+        with title "i4T 一键安装与修复" ¬
+        buttons {"取消", "继续安装"} ¬
+        default button "继续安装" ¬
+        cancel button "取消" ¬
+        with icon note
+
+    if button returned of response is not "继续安装" then error number -128
+
+    set sourceQuoted to quoted form of sourceApp
+    set destinationQuoted to quoted form of destinationApp
+    set executableQuoted to quoted form of (destinationApp & "/Contents/MacOS/RustDesk")
+    set serviceQuoted to quoted form of (destinationApp & "/Contents/MacOS/service")
+
+    set installCommand to ¬
+        "/usr/bin/pkill -x RustDesk >/dev/null 2>&1 || true; " & ¬
+        "/bin/rm -rf " & destinationQuoted & "; " & ¬
+        "/usr/bin/ditto " & sourceQuoted & " " & destinationQuoted & "; " & ¬
+        "/bin/chmod +x " & executableQuoted & "; " & ¬
+        "if [ -f " & serviceQuoted & " ]; then /bin/chmod +x " & serviceQuoted & "; fi; " & ¬
+        "/usr/bin/xattr -cr " & destinationQuoted & "; " & ¬
+        "/usr/bin/codesign --verify --deep --strict " & destinationQuoted & ¬
+        " >/dev/null 2>&1 || /usr/bin/codesign --force --deep --sign - " & destinationQuoted
+
+    do shell script installCommand with administrator privileges
+end run
+APPLESCRIPT
+then
+  exit 0
+fi
+
+/usr/bin/open "$DEST_APP"
+/usr/bin/osascript -e \
+  'display notification "RustDesk 已安装并完成启动修复。" with title "i4T 安装完成"'

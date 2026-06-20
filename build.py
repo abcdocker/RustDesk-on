@@ -413,10 +413,25 @@ def build_flutter_dmg(version, features):
     system2('flutter build macos --release')
     system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/RustDesk.app/Contents/MacOS/')
     app_path = Path('./build/macos/Build/Products/Release/RustDesk.app')
+    helper_source = Path('../res/macos-installer-helper')
+    helper_app_path = Path('./build/macos/Build/Products/Release/i4T Install and Repair.app')
+    if helper_app_path.exists():
+        shutil.rmtree(helper_app_path)
+    helper_macos = helper_app_path / 'Contents/MacOS'
+    helper_resources = helper_app_path / 'Contents/Resources'
+    helper_macos.mkdir(parents=True)
+    helper_resources.mkdir(parents=True)
+    shutil.copy2(helper_source / 'Info.plist', helper_app_path / 'Contents/Info.plist')
+    shutil.copy2(helper_source / 'InstallerHelper.icns', helper_resources / 'InstallerHelper.icns')
+    helper_executable = helper_macos / 'i4t-installer-helper'
+    shutil.copy2(helper_source / 'i4t-installer-helper', helper_executable)
+    helper_executable.chmod(0o755)
     permission_script = app_path / 'Contents/Resources/macos-reset-permissions.command'
     shutil.copy2('../scripts/macos-reset-permissions.command', permission_script)
     permission_script.chmod(0o755)
     if os.environ.get('MACOS_P12_BASE64') in (None, ''):
+        system2(f'codesign --force --deep --options runtime --sign - "{helper_app_path}"')
+        system2(f'codesign --verify --deep --strict --verbose=2 "{helper_app_path}"')
         system2(f'codesign --force --deep --options runtime --sign - "{app_path}"')
         system2(f'codesign --verify --deep --strict --verbose=2 "{app_path}"')
     '''
