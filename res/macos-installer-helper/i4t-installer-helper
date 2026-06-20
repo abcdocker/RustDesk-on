@@ -43,11 +43,28 @@ on run argv
         "/usr/bin/ditto " & sourceQuoted & " " & destinationQuoted & "; " & ¬
         "/bin/chmod +x " & executableQuoted & "; " & ¬
         "if [ -f " & serviceQuoted & " ]; then /bin/chmod +x " & serviceQuoted & "; fi; " & ¬
-        "/usr/bin/xattr -cr " & destinationQuoted & "; " & ¬
-        "/usr/bin/codesign --verify --deep --strict " & destinationQuoted & ¬
-        " >/dev/null 2>&1 || /usr/bin/codesign --force --deep --sign - " & destinationQuoted
+        "/usr/bin/xattr -rd com.apple.quarantine " & destinationQuoted & " >/dev/null 2>&1 || true; " & ¬
+        "/usr/bin/codesign --force --deep --sign - " & destinationQuoted & "; " & ¬
+        "/usr/bin/codesign --verify --deep --strict " & destinationQuoted
 
-    do shell script installCommand with administrator privileges
+    try
+        do shell script installCommand with administrator privileges
+    on error errorText number errorNumber
+        display dialog ¬
+            "安装修复失败（" & errorNumber & "）：\n\n" & errorText ¬
+            with title "i4T 安装与修复" ¬
+            buttons {"确定"} ¬
+            default button "确定" ¬
+            with icon stop
+        error number -128
+    end try
+
+    display dialog ¬
+        "RustDesk 已复制到“应用程序”，隔离标记已清除，并已完成本机临时签名。" ¬
+        with title "i4T 安装修复完成" ¬
+        buttons {"打开 RustDesk"} ¬
+        default button "打开 RustDesk" ¬
+        with icon note
 end run
 APPLESCRIPT
 then
@@ -55,5 +72,3 @@ then
 fi
 
 /usr/bin/open "$DEST_APP"
-/usr/bin/osascript -e \
-  'display notification "RustDesk 已安装并完成启动修复。" with title "i4T 安装完成"'

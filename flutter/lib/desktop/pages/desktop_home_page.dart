@@ -538,23 +538,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   _I4TNetworkStatus _resolveI4TNetworkStatus(
-    ServerModel model, {
-    required bool hasApiError,
-  }) {
+    ServerModel model,
+  ) {
     if (svcStopped.value) {
       return const _I4TNetworkStatus(
         label: 'RustDesk 服务已停止',
         compactLabel: '服务停止',
         icon: Icons.power_settings_new,
-        color: Color(0xFFB91C1C),
-        backgroundColor: Color(0xFFFEE2E2),
-      );
-    }
-    if (hasApiError) {
-      return const _I4TNetworkStatus(
-        label: 'RustDesk 网络异常',
-        compactLabel: '网络异常',
-        icon: Icons.cloud_off_outlined,
         color: Color(0xFFB91C1C),
         backgroundColor: Color(0xFFFEE2E2),
       );
@@ -591,10 +581,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return Consumer<ServerModel>(
       builder: (context, model, _) {
         return Obx(() {
-          final status = _resolveI4TNetworkStatus(
-            model,
-            hasApiError: gFFI.userModel.networkError.isNotEmpty,
-          );
+          final status = _resolveI4TNetworkStatus(model);
           return Tooltip(
             message: status.label,
             child: Container(
@@ -1054,10 +1041,7 @@ end tell
         Consumer<ServerModel>(
           builder: (context, model, _) {
             return Obx(() {
-              final status = _resolveI4TNetworkStatus(
-                model,
-                hasApiError: gFFI.userModel.networkError.isNotEmpty,
-              );
+              final status = _resolveI4TNetworkStatus(model);
               return Row(
                 children: [
                   Icon(status.icon, size: 16, color: status.color),
