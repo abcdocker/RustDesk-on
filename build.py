@@ -412,8 +412,11 @@ def build_flutter_dmg(version, features):
     os.chdir('flutter')
     system2('flutter build macos --release')
     system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/RustDesk.app/Contents/MacOS/')
+    app_path = Path('./build/macos/Build/Products/Release/RustDesk.app')
+    permission_script = app_path / 'Contents/Resources/macos-reset-permissions.command'
+    shutil.copy2('../scripts/macos-reset-permissions.command', permission_script)
+    permission_script.chmod(0o755)
     if os.environ.get('MACOS_P12_BASE64') in (None, ''):
-        app_path = './build/macos/Build/Products/Release/RustDesk.app'
         system2(f'codesign --force --deep --options runtime --sign - "{app_path}"')
         system2(f'codesign --verify --deep --strict --verbose=2 "{app_path}"')
     '''

@@ -588,9 +588,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   Widget _buildI4TNetworkStatus({required bool compact}) {
-    return Obx(
-      () => Consumer<ServerModel>(
-        builder: (context, model, _) {
+    return Consumer<ServerModel>(
+      builder: (context, model, _) {
+        return Obx(() {
           final status = _resolveI4TNetworkStatus(
             model,
             hasApiError: gFFI.userModel.networkError.isNotEmpty,
@@ -622,8 +622,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               ),
             ),
           );
-        },
-      ),
+        });
+      },
     );
   }
 
@@ -732,6 +732,18 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           const SizedBox(width: 10),
           SizedBox(
             height: compact ? 30 : 32,
+            child: TextButton.icon(
+              onPressed: _runI4TMacPermissionRepair,
+              icon: const Icon(Icons.build_outlined, size: 16),
+              label: const Text(
+                '权限修复',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            height: compact ? 30 : 32,
             child: OutlinedButton(
               onPressed: primary.onPressed,
               child: Text(
@@ -763,6 +775,53 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         ],
       ),
     );
+  }
+
+  Future<void> _runI4TMacPermissionRepair() async {
+    if (!isMacOS) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('修复 Mac 权限'),
+        content: const Text(
+          '该脚本会清除 RustDesk 现有的屏幕录制、辅助功能和输入监控授权记录，然后逐项打开系统设置。'
+          '\n\nmacOS 不允许脚本代替用户授权，清理后仍需手动勾选 RustDesk，并完全退出后重新打开。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('打开修复脚本'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final executable = File(Platform.resolvedExecutable);
+    final script = File(
+      '${executable.parent.parent.path}/Resources/'
+      'macos-reset-permissions.command',
+    );
+    if (!await script.exists()) {
+      showToast('未找到权限修复脚本，请重新安装最新版本');
+      return;
+    }
+    final result = await Process.run(
+      '/usr/bin/open',
+      ['-a', 'Terminal', script.path],
+    );
+    if (result.exitCode != 0) {
+      showToast('权限修复脚本打开失败');
+      return;
+    }
+    watchIsCanScreenRecording = true;
+    watchIsProcessTrust = true;
+    watchIsInputMonitoring = true;
+    showToast('请在终端中按提示完成权限修复');
   }
 
   Future<void> _showI4TLoginChoices(BuildContext context) async {
@@ -985,9 +1044,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ],
         ),
         const Spacer(),
-        Obx(
-          () => Consumer<ServerModel>(
-            builder: (context, model, _) {
+        Consumer<ServerModel>(
+          builder: (context, model, _) {
+            return Obx(() {
               final status = _resolveI4TNetworkStatus(
                 model,
                 hasApiError: gFFI.userModel.networkError.isNotEmpty,
@@ -1004,8 +1063,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                   ),
                 ],
               );
-            },
-          ),
+            });
+          },
         ),
       ],
     );
