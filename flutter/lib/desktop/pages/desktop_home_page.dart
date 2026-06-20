@@ -810,9 +810,16 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       showToast('未找到权限修复脚本，请重新安装最新版本');
       return;
     }
+    final command = '/bin/zsh ${jsonEncode(script.absolute.path)}';
+    final appleScript = '''
+tell application id "com.apple.Terminal"
+  activate
+  do script ${jsonEncode(command)}
+end tell
+''';
     final result = await Process.run(
-      '/usr/bin/open',
-      ['-a', 'Terminal', script.path],
+      '/usr/bin/osascript',
+      ['-e', appleScript],
     );
     if (result.exitCode != 0) {
       showToast('权限修复脚本打开失败');
