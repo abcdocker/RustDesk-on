@@ -77,9 +77,11 @@ void changeIdDialog({String? impactNotice}) {
   final RxString rxId = controller.text.trim().obs;
 
   final rules = [
-    RegexValidationRule('starts with a letter', RegExp(r'^[a-zA-Z]')),
+    RegexValidationRule(
+        'starts with a letter or number', RegExp(r'^[a-zA-Z0-9]')),
     LengthRangeValidationRule(6, 16),
-    RegexValidationRule('allowed characters', RegExp(r'^[\w-]*$'))
+    RegexValidationRule(
+        'allowed characters', RegExp(r'^[a-zA-Z0-9_-]*$'))
   ];
 
   gFFI.dialogManager.show((setState, close, context) {

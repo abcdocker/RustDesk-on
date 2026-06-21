@@ -255,9 +255,29 @@ where
 }
 
 pub fn is_valid_custom_id(id: &str) -> bool {
-    regex::Regex::new(r"^[a-zA-Z][\w-]{5,15}$")
+    regex::Regex::new(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{5,15}$")
         .unwrap()
         .is_match(id)
+}
+
+#[cfg(test)]
+mod custom_id_tests {
+    use super::is_valid_custom_id;
+
+    #[test]
+    fn accepts_numeric_and_named_ids() {
+        assert!(is_valid_custom_id("123456789"));
+        assert!(is_valid_custom_id("Office-PC_01"));
+    }
+
+    #[test]
+    fn rejects_unsafe_or_out_of_range_ids() {
+        assert!(!is_valid_custom_id("short"));
+        assert!(!is_valid_custom_id("-office01"));
+        assert!(!is_valid_custom_id("office.pc"));
+        assert!(!is_valid_custom_id("office pc"));
+        assert!(!is_valid_custom_id("12345678901234567"));
+    }
 }
 
 // Support 1.1.10-1, the number after - is a patch version.

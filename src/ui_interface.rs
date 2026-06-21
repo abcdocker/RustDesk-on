@@ -1309,6 +1309,7 @@ pub(crate) async fn send_to_cm(data: &ipc::Data) {
 
 const INVALID_FORMAT: &'static str = "Invalid format";
 const UNKNOWN_ERROR: &'static str = "Unknown error";
+const SERVER_NOT_SUPPORT: &'static str = "server_not_support";
 
 #[inline]
 #[tokio::main(flavor = "current_thread")]
@@ -1366,9 +1367,31 @@ pub async fn change_id_shared_(id: String, old_id: String) -> &'static str {
     }
     join_all(futs).await;
     let err = *err.lock().unwrap();
+
+    // The open-source hbbs accepts normal ID registration, but does not expose
+    // the preflight ID-change endpoint. In that case, update the service-owned
+    // config through IPC instead of editing RustDesk.toml directly. The service
+    // will clear key confirmation and register the requested ID normally.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    if err == SERVER_NOT_SUPPORT {
+        return match crate::ipc::set_config_async("id", id.to_owned()).await {
+            Ok(_) => {
+                log::info!("ID server does not support change preflight; updated ID through IPC");
+                ""
+            }
+            Err(e) => {
+                log::error!("Failed to update ID through IPC: {e}");
+                UNKNOWN_ERROR
+            }
+        };
+    }
+
     if err.is_empty() {
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        crate::ipc::set_config_async("id", id.to_owned()).await.ok();
+        if let Err(e) = crate::ipc::set_config_async("id", id.to_owned()).await {
+            log::error!("ID was accepted by the server but IPC update failed: {e}");
+            return UNKNOWN_ERROR;
+        }
         #[cfg(any(target_os = "android", target_os = "ios"))]
         {
             Config::set_key_confirmed(false);
@@ -1415,7 +1438,7 @@ async fn check_id(
                                 return "Too frequent";
                             }
                             Ok(register_pk_response::Result::NOT_SUPPORT) => {
-                                return "server_not_support";
+                                return SERVER_NOT_SUPPORT;
                             }
                             Ok(register_pk_response::Result::SERVER_ERROR) => {
                                 return "Server error";

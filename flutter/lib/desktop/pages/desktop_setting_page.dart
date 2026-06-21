@@ -837,8 +837,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                 permissions(context),
                 password(context),
                 _Card(title: '2FA', children: [tfa()]),
-                if (!isChangeIdDisabled())
-                  _Card(title: '本机 ID', children: [changeId()]),
                 more(context),
               ]),
             ),
@@ -963,67 +961,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
     }
 
     return tmpWrapper();
-  }
-
-  Widget changeId() {
-    return ChangeNotifierProvider.value(
-        value: gFFI.serverModel,
-        child: Consumer<ServerModel>(builder: ((context, model, child) {
-          final connected = model.connectStatus > 0;
-          return Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _kContentHMargin,
-              vertical: 8,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '当前本机 ID',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        model.serverId.text,
-                        style: const TextStyle(
-                          color: Color(0xFF1266F1),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        connected
-                            ? '新 ID 需由 ID 服务器校验后才会生效'
-                            : 'ID 服务未连接，暂时无法修改本机 ID',
-                        style: TextStyle(
-                          color: connected
-                              ? const Color(0xFF64748B)
-                              : const Color(0xFFB91C1C),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('修改本机 ID'),
-                  onPressed: !locked && connected
-                      ? () => changeIdDialog(
-                            impactNotice:
-                                '修改成功后旧 ID 将立即失效，其他设备的地址簿和最近连接不会自动更新；永久密码与本机设置会保留，新 ID 会重新注册公钥。',
-                          )
-                      : null,
-                ),
-              ],
-            ),
-          );
-        })));
   }
 
   Widget permissions(context) {

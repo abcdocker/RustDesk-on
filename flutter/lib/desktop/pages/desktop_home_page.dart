@@ -9,6 +9,7 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
+import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/i4t_sso_link.dart';
 import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
@@ -440,6 +441,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           _buildI4TNavItem(Icons.history_outlined, '最近连接',
               selected: _i4tSection == _I4TDashboardSection.recent,
               onTap: () => _setI4TSection(_I4TDashboardSection.recent)),
+          if (!isChangeIdDisabled())
+            _buildI4TNavItem(Icons.badge_outlined, '修改 ID',
+                onTap: _showI4TChangeIdDialog),
           _buildI4TNavItem(Icons.article_outlined, '日志',
               selected: _i4tSection == _I4TDashboardSection.logs,
               onTap: () => _setI4TSection(_I4TDashboardSection.logs)),
@@ -481,6 +485,20 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         _refreshI4TLogs(force: true);
         break;
     }
+  }
+
+  void _showI4TChangeIdDialog() {
+    if (gFFI.serverModel.connectStatus != 1) {
+      showToast('ID 服务未连接，请先在日志中查看连接异常');
+      _setI4TSection(_I4TDashboardSection.logs);
+      return;
+    }
+
+    final currentId = gFFI.serverModel.serverId.text.trim();
+    changeIdDialog(
+      impactNotice:
+          '当前 ID：$currentId\n修改后旧 ID 将立即失效，其他设备的地址簿和最近连接不会自动更新。开源 ID 服务器不支持换绑预检时，客户端会通过本机服务安全更新并重新注册；如果 ID 已被占用，服务器会为本机重新生成 ID。',
+    );
   }
 
   void _selectI4TPeerTab(PeerTabIndex tab) {
