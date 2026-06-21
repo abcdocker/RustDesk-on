@@ -645,7 +645,9 @@ jobs:
           ./autogen.sh
           ./configure
           make -j"$(sysctl -n hw.logicalcpu)"
-          sudo make install
+          # Git checkouts do not contain the generated man pages expected by
+          # `make install`; only the two executables are needed by vcpkg.
+          sudo install -m 0755 nasm ndisasm /usr/local/bin/
           popd
           nasm --version
           nasm --version | grep -q "NASM version 2.16.03"
