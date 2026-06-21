@@ -81,7 +81,8 @@ jobs:
       - name: Test custom ID validation
         shell: bash
         run: |
-          cargo test -p hbb_common custom_id_tests --lib
+          rustc --edition=2018 --test libs/hbb_common/src/custom_id.rs -o /tmp/custom-id-tests
+          /tmp/custom-id-tests
           pushd flutter
           dart run test/change_id_validation_test.dart
           popd
