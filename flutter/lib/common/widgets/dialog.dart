@@ -69,7 +69,7 @@ class RegexValidationRule extends ValidationRule {
   }
 }
 
-void changeIdDialog() {
+void changeIdDialog({String? impactNotice}) {
   var newId = "";
   var msg = "";
   var isInProgress = false;
@@ -127,6 +127,26 @@ void changeIdDialog() {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(translate("id_change_tip")),
+          if (impactNotice != null && impactNotice.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFACC15)),
+              ),
+              child: Text(
+                impactNotice,
+                style: const TextStyle(
+                  color: Color(0xFF7C2D12),
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(
             height: 12.0,
           ),

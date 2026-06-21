@@ -46,6 +46,7 @@ enum _I4TDashboardSection {
   devices,
   addressBook,
   recent,
+  logs,
 }
 
 class _I4TFeatureBadge extends StatelessWidget {
@@ -129,12 +130,21 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Timer? _updateTimer;
   bool isCardClosed = false;
   _I4TDashboardSection _i4tSection = _I4TDashboardSection.remote;
+  String _i4tLogText = '';
+  String _i4tLogPath = '';
+  String _i4tLogError = '';
+  bool _i4tLogOnlyProblems = false;
+  bool _i4tLogAutoFollow = true;
+  bool _i4tLogLoading = false;
+  int _i4tLogErrorCount = 0;
+  int _i4tLogWarningCount = 0;
 
   final RxBool _editHover = false.obs;
   final RxBool _block = false.obs;
 
   final GlobalKey _childKey = GlobalKey();
   final TextEditingController _i4tRemoteIdController = TextEditingController();
+  final ScrollController _i4tLogScrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
@@ -317,30 +327,37 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                   localWidth: localWidth,
                                   gap: gap,
                                 )
-                              : _buildI4TPeerListPanel(
-                                  context,
-                                  compact: compact,
+                              : _i4tSection == _I4TDashboardSection.logs
+                                  ? _buildI4TLogPanel(
+                                      context,
+                                      compact: compact,
+                                    )
+                                  : _buildI4TPeerListPanel(
+                                      context,
+                                      compact: compact,
+                                    ),
+                        ),
+                        if (_i4tSection != _I4TDashboardSection.logs) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  size: 14, color: Color(0xFF22C55E)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '状态图例：绿色 = 在线，灰色 = 离线',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color
+                                      ?.withOpacity(0.72),
                                 ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.check_circle,
-                                size: 14, color: Color(0xFF22C55E)),
-                            const SizedBox(width: 6),
-                            Text(
-                              '状态图例：绿色 = 在线，灰色 = 离线',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.color
-                                    ?.withOpacity(0.72),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -423,6 +440,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           _buildI4TNavItem(Icons.history_outlined, '最近连接',
               selected: _i4tSection == _I4TDashboardSection.recent,
               onTap: () => _setI4TSection(_I4TDashboardSection.recent)),
+          _buildI4TNavItem(Icons.article_outlined, '日志',
+              selected: _i4tSection == _I4TDashboardSection.logs,
+              onTap: () => _setI4TSection(_I4TDashboardSection.logs)),
           const Spacer(),
           _buildI4TNavItem(Icons.settings_outlined, '设置',
               onTap: DesktopTabPage.onAddSetting),
@@ -456,6 +476,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         break;
       case _I4TDashboardSection.recent:
         _selectI4TPeerTab(PeerTabIndex.recent);
+        break;
+      case _I4TDashboardSection.logs:
+        _refreshI4TLogs(force: true);
         break;
     }
   }
@@ -1259,6 +1282,374 @@ end tell
     );
   }
 
+  List<String> _i4TLogDirectories() {
+    final appName = bind.mainGetAppNameSync();
+    final env = Platform.environment;
+    if (isWindows) {
+      final paths = <String>[];
+      final appData = env['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        paths.add('$appData\\$appName\\log');
+      }
+      final windowsDirectory = env['WINDIR'] ?? r'C:\Windows';
+      paths.add(
+        '$windowsDirectory\\ServiceProfiles\\LocalService\\AppData\\Roaming\\$appName\\log',
+      );
+      paths.add(
+        '$windowsDirectory\\System32\\config\\systemprofile\\AppData\\Roaming\\$appName\\log',
+      );
+      return paths;
+    }
+    final home = env['HOME'];
+    if (home == null || home.isEmpty) return const [];
+    if (isMacOS) {
+      return ['$home/Library/Logs/$appName'];
+    }
+    return ['$home/.local/share/logs/$appName'];
+  }
+
+  bool _isI4TErrorLogLine(String line) {
+    final lower = line.toLowerCase();
+    return lower.contains(' error ') ||
+        lower.contains('] error ') ||
+        lower.contains('fatal') ||
+        lower.contains('failed') ||
+        lower.contains('exception') ||
+        lower.contains('timedout') ||
+        lower.contains('timed out') ||
+        lower.contains('no such host') ||
+        lower.contains('not known');
+  }
+
+  bool _isI4TWarningLogLine(String line) {
+    final lower = line.toLowerCase();
+    return lower.contains(' warn ') || lower.contains('] warn ');
+  }
+
+  Future<String> _readI4TLogTail(File file) async {
+    const maxBytes = 256 * 1024;
+    final length = await file.length();
+    final start = length > maxBytes ? length - maxBytes : 0;
+    final handle = await file.open();
+    try {
+      await handle.setPosition(start);
+      final bytes = await handle.read(length - start);
+      var text = utf8.decode(bytes, allowMalformed: true);
+      if (start > 0) {
+        final firstNewline = text.indexOf('\n');
+        if (firstNewline >= 0) text = text.substring(firstNewline + 1);
+      }
+      return text;
+    } finally {
+      await handle.close();
+    }
+  }
+
+  Future<void> _refreshI4TLogs({bool force = false}) async {
+    if (_i4tLogLoading || (!force && _i4tSection != _I4TDashboardSection.logs)) {
+      return;
+    }
+    _i4tLogLoading = true;
+    try {
+      final candidates = <File>[];
+      for (final path in _i4TLogDirectories()) {
+        final directory = Directory(path);
+        if (!await directory.exists()) continue;
+        try {
+          await for (final entity
+              in directory.list(recursive: true, followLinks: false)) {
+            if (entity is! File) continue;
+            final normalized = entity.path.toLowerCase();
+            if (normalized.endsWith('.log') && normalized.contains('current')) {
+              candidates.add(entity);
+            }
+          }
+        } catch (_) {
+          // Some Windows service log directories require elevated permissions.
+        }
+      }
+
+      if (candidates.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _i4tLogText = '';
+            _i4tLogPath = '';
+            _i4tLogError = '暂未找到当前日志文件';
+            _i4tLogErrorCount = 0;
+            _i4tLogWarningCount = 0;
+          });
+        }
+        return;
+      }
+
+      candidates.sort((a, b) => a.path.compareTo(b.path));
+      final sections = <String>[];
+      final paths = <String>[];
+      for (final file in candidates) {
+        try {
+          var text = await _readI4TLogTail(file);
+          if (text.trim().isEmpty) continue;
+          final fileLines = text.split('\n');
+          if (fileLines.length > 350) {
+            text = fileLines.sublist(fileLines.length - 350).join('\n');
+          }
+          paths.add(file.path);
+          sections.add('===== ${file.path} =====\n$text');
+        } catch (_) {
+          // Continue showing every readable log source.
+        }
+      }
+
+      var combined = sections.join('\n');
+      final lines = combined.split('\n');
+      if (lines.length > 1600) {
+        combined = lines.sublist(lines.length - 1600).join('\n');
+      }
+      final visibleLines = combined.split('\n');
+      final errorCount = visibleLines.where(_isI4TErrorLogLine).length;
+      final warningCount = visibleLines.where(_isI4TWarningLogLine).length;
+      if (mounted &&
+          (force ||
+              combined != _i4tLogText ||
+              paths.join('\n') != _i4tLogPath ||
+              _i4tLogError.isNotEmpty)) {
+        setState(() {
+          _i4tLogText = combined;
+          _i4tLogPath = paths.join('\n');
+          _i4tLogError = combined.isEmpty ? '日志文件暂时为空' : '';
+          _i4tLogErrorCount = errorCount;
+          _i4tLogWarningCount = warningCount;
+        });
+        if (_i4tLogAutoFollow) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_i4tLogScrollController.hasClients) {
+              _i4tLogScrollController.jumpTo(
+                _i4tLogScrollController.position.maxScrollExtent,
+              );
+            }
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _i4tLogError = '读取日志失败：$e');
+      }
+    } finally {
+      _i4tLogLoading = false;
+    }
+  }
+
+  Future<void> _openI4TLogLocation() async {
+    if (_i4tLogPath.isEmpty) return;
+    final path = _i4tLogPath.split('\n').first;
+    if (isWindows) {
+      await Process.run('explorer.exe', ['/select,$path']);
+    } else if (isMacOS) {
+      await Process.run('/usr/bin/open', ['-R', path]);
+    } else {
+      await Process.run('xdg-open', [File(path).parent.path]);
+    }
+  }
+
+  Widget _buildI4TLogPanel(BuildContext context, {required bool compact}) {
+    final serverModel = Provider.of<ServerModel>(context);
+    final networkStatus = _resolveI4TNetworkStatus(serverModel);
+    final sourceLines = _i4tLogText.split('\n');
+    final displayLines = _i4tLogOnlyProblems
+        ? sourceLines
+            .where((line) =>
+                line.startsWith('=====') ||
+                _isI4TErrorLogLine(line) ||
+                _isI4TWarningLogLine(line))
+            .toList()
+        : sourceLines;
+    final spans = <TextSpan>[];
+    for (final line in displayLines) {
+      Color color = const Color(0xFFD7E2F5);
+      FontWeight weight = FontWeight.normal;
+      if (line.startsWith('=====')) {
+        color = const Color(0xFF67E8F9);
+        weight = FontWeight.w700;
+      } else if (_isI4TErrorLogLine(line)) {
+        color = const Color(0xFFFCA5A5);
+        weight = FontWeight.w600;
+      } else if (_isI4TWarningLogLine(line)) {
+        color = const Color(0xFFFCD34D);
+      }
+      spans.add(TextSpan(
+        text: '$line\n',
+        style: TextStyle(color: color, fontWeight: weight),
+      ));
+    }
+
+    return _buildI4TPanel(
+      context,
+      title: '运行日志',
+      compact: compact,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: '打开日志位置',
+            icon: const Icon(Icons.folder_open_outlined, size: 18),
+            onPressed: _i4tLogPath.isEmpty ? null : _openI4TLogLocation,
+          ),
+          IconButton(
+            tooltip: '复制当前日志',
+            icon: const Icon(Icons.copy_outlined, size: 18),
+            onPressed: _i4tLogText.isEmpty
+                ? null
+                : () async {
+                    await Clipboard.setData(ClipboardData(text: _i4tLogText));
+                    showToast(translate('Copied'));
+                  },
+          ),
+          IconButton(
+            tooltip: '刷新日志',
+            icon: const Icon(Icons.refresh, size: 18),
+            onPressed: () => _refreshI4TLogs(force: true),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: networkStatus.backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(networkStatus.icon, size: 17, color: networkStatus.color),
+                const SizedBox(width: 7),
+                Text(
+                  networkStatus.label,
+                  style: TextStyle(
+                    color: networkStatus.color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (systemError.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      systemError,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFB91C1C),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildI4TLogBadge(
+                Icons.error_outline,
+                '错误 $_i4tLogErrorCount',
+                const Color(0xFFB91C1C),
+                const Color(0xFFFEE2E2),
+              ),
+              const SizedBox(width: 8),
+              _buildI4TLogBadge(
+                Icons.warning_amber_outlined,
+                '警告 $_i4tLogWarningCount',
+                const Color(0xFFB45309),
+                const Color(0xFFFEF3C7),
+              ),
+              const Spacer(),
+              FilterChip(
+                selected: _i4tLogOnlyProblems,
+                label: const Text('仅看问题'),
+                onSelected: (value) =>
+                    setState(() => _i4tLogOnlyProblems = value),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                selected: _i4tLogAutoFollow,
+                label: const Text('自动跟随'),
+                onSelected: (value) =>
+                    setState(() => _i4tLogAutoFollow = value),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF081225),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF1E3A5F)),
+              ),
+              child: _i4tLogError.isNotEmpty && _i4tLogText.isEmpty
+                  ? Center(
+                      child: Text(
+                        _i4tLogError,
+                        style: const TextStyle(color: Color(0xFFFCA5A5)),
+                      ),
+                    )
+                  : Scrollbar(
+                      controller: _i4tLogScrollController,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _i4tLogScrollController,
+                        child: SelectableText.rich(
+                          TextSpan(children: spans),
+                          style: TextStyle(
+                            fontFamily: isWindows ? 'Consolas' : 'Menlo',
+                            fontSize: compact ? 11 : 12,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildI4TLogBadge(
+    IconData icon,
+    String text,
+    Color color,
+    Color backgroundColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String get _i4tPeerPanelTitle {
     switch (_i4tSection) {
       case _I4TDashboardSection.remote:
@@ -1269,6 +1660,8 @@ end tell
         return '地址簿';
       case _I4TDashboardSection.recent:
         return '连接主机 / 最近连接';
+      case _I4TDashboardSection.logs:
+        return '运行日志';
     }
   }
 
@@ -1289,6 +1682,9 @@ end tell
         break;
       case _I4TDashboardSection.recent:
         bind.mainLoadRecentPeers();
+        break;
+      case _I4TDashboardSection.logs:
+        _refreshI4TLogs(force: true);
         break;
     }
   }
@@ -1371,6 +1767,8 @@ end tell
         return DiscoveredPeersView(menuPadding: padding);
       case _I4TDashboardSection.recent:
         return RecentPeersView(menuPadding: padding);
+      case _I4TDashboardSection.logs:
+        return const SizedBox.shrink();
     }
   }
 
@@ -2071,6 +2469,9 @@ buildTip(BuildContext context) {
           setState(() {});
         }
       }
+      if (_i4tSection == _I4TDashboardSection.logs) {
+        await _refreshI4TLogs();
+      }
     });
     Get.put<RxBool>(svcStopped, tag: 'stop-service');
     rustDeskWinManager.registerActiveWindowListener(onActiveWindowChanged);
@@ -2204,6 +2605,7 @@ buildTip(BuildContext context) {
   void dispose() {
     _uniLinksSubscription?.cancel();
     _i4tRemoteIdController.dispose();
+    _i4tLogScrollController.dispose();
     Get.delete<RxBool>(tag: 'stop-service');
     _updateTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
