@@ -361,24 +361,31 @@ class LoginWidgetUserPass extends StatelessWidget {
             // NOT use Offstage to wrap LinearProgressIndicator
             if (isInProgress) const LinearProgressIndicator(),
             const SizedBox(height: 12.0),
-            FittedBox(
-                child:
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                height: 38,
-                width: 200,
-                child: Obx(() => ElevatedButton(
-                      child: Text(
-                        'RustDesk 默认登录',
-                        style: TextStyle(fontSize: 16),
+            SizedBox(
+              height: 42,
+              width: double.infinity,
+              child: Obx(() => ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1266F1),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onPressed:
-                          curOP.value.isEmpty || curOP.value == 'rustdesk'
-                              ? onLogin
-                              : null,
-                    )),
-              ),
-            ])),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.login, size: 18),
+                    label: const Text(
+                      'RustDesk 账户登录',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onPressed: curOP.value.isEmpty || curOP.value == 'rustdesk'
+                        ? onLogin
+                        : null,
+                  )),
+            ),
           ],
         ));
   }
@@ -590,9 +597,50 @@ Future<bool?> loginDialog() async {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(
-            height: 8.0,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F6FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFD6E5FF)),
+            ),
+            child: const Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Color(0xFF1266F1),
+                  child: Icon(Icons.person_outline,
+                      color: Colors.white, size: 22),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '账户密码登录',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        '登录后可同步地址簿与授权设备',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(height: 12),
           LoginWidgetUserPass(
             username: username,
             pass: password,

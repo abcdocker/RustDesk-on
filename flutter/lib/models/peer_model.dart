@@ -22,6 +22,22 @@ class Peer {
   String device_group_name;
   String note;
   bool? sameServer;
+  int lastConnectedAt;
+
+  static int parseLastConnectedAt(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) {
+      final timestamp = value.toInt();
+      return timestamp > 1000000000000 ? timestamp ~/ 1000 : timestamp;
+    }
+    final text = value.toString().trim();
+    final timestamp = int.tryParse(text);
+    if (timestamp != null) {
+      return timestamp > 1000000000000 ? timestamp ~/ 1000 : timestamp;
+    }
+    final dateTime = DateTime.tryParse(text);
+    return dateTime == null ? 0 : dateTime.millisecondsSinceEpoch ~/ 1000;
+  }
 
   String getId() {
     if (alias != '') {
@@ -45,7 +61,12 @@ class Peer {
         loginName = json['loginName'] ?? '',
         device_group_name = json['device_group_name'] ?? '',
         note = json['note'] is String ? json['note'] : '',
-        sameServer = json['same_server'];
+        sameServer = json['same_server'],
+        lastConnectedAt = parseLastConnectedAt(json['last_connected'] ??
+            json['last_connected_at'] ??
+            json['last_online'] ??
+            json['last_seen'] ??
+            json['updated_at']);
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -64,6 +85,7 @@ class Peer {
       'device_group_name': device_group_name,
       'note': note,
       'same_server': sameServer,
+      'last_connected': lastConnectedAt,
     };
   }
 
@@ -90,6 +112,7 @@ class Peer {
       "platform": platform,
       "login_name": loginName,
       "device_group_name": device_group_name,
+      "last_connected": lastConnectedAt,
     };
   }
 
@@ -108,6 +131,7 @@ class Peer {
     required this.loginName,
     required this.device_group_name,
     required this.note,
+    this.lastConnectedAt = 0,
     this.sameServer,
   });
 
@@ -142,7 +166,8 @@ class Peer {
         rdpUsername == other.rdpUsername &&
         device_group_name == other.device_group_name &&
         loginName == other.loginName &&
-        note == other.note;
+        note == other.note &&
+        lastConnectedAt == other.lastConnectedAt;
   }
 
   Peer.copy(Peer other)
@@ -161,6 +186,7 @@ class Peer {
             loginName: other.loginName,
             device_group_name: other.device_group_name,
             note: other.note,
+            lastConnectedAt: other.lastConnectedAt,
             sameServer: other.sameServer);
 }
 

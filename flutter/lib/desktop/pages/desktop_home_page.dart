@@ -19,6 +19,7 @@ import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/models/peer_model.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -139,6 +140,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   bool _i4tLogLoading = false;
   int _i4tLogErrorCount = 0;
   int _i4tLogWarningCount = 0;
+  int _i4tPeerStatusTick = 0;
+  int _i4tPeerQueryIntervalSeconds = 20;
 
   final RxBool _editHover = false.obs;
   final RxBool _block = false.obs;
@@ -340,24 +343,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                         ),
                         if (_i4tSection != _I4TDashboardSection.logs) ...[
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Icon(Icons.check_circle,
-                                  size: 14, color: Color(0xFF22C55E)),
-                              const SizedBox(width: 6),
-                              Text(
-                                '状态图例：绿色 = 在线，灰色 = 离线',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.color
-                                      ?.withOpacity(0.72),
-                                ),
-                              ),
-                            ],
-                          ),
+                          _buildI4TPeerStats(context),
                         ],
                       ],
                     ),
@@ -367,6 +353,107 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Peers _currentI4TPeers() {
+    switch (_i4tSection) {
+      case _I4TDashboardSection.remote:
+        if (gFFI.userModel.isLogin &&
+            gFFI.peerTabModel.isVisibleEnabled[PeerTabIndex.group.index]) {
+          return gFFI.groupModel.peersModel;
+        }
+        return gFFI.recentPeersModel;
+      case _I4TDashboardSection.addressBook:
+        return gFFI.abModel.peersModel;
+      case _I4TDashboardSection.devices:
+        if (gFFI.userModel.isLogin &&
+            gFFI.peerTabModel.isVisibleEnabled[PeerTabIndex.group.index]) {
+          return gFFI.groupModel.peersModel;
+        }
+        return gFFI.lanPeersModel;
+      case _I4TDashboardSection.recent:
+        return gFFI.recentPeersModel;
+      case _I4TDashboardSection.logs:
+        return gFFI.recentPeersModel;
+    }
+  }
+
+  Widget _buildI4TPeerStats(BuildContext context) {
+    final peers = _currentI4TPeers();
+    return AnimatedBuilder(
+      animation: peers,
+      builder: (context, _) {
+        final online = peers.peers.where((peer) => peer.online).length;
+        final offline = peers.peers.length - online;
+        return Row(
+          children: [
+            _buildI4TPeerStatBadge(
+              icon: Icons.circle,
+              label: '在线',
+              count: online,
+              color: const Color(0xFF15803D),
+              background: const Color(0xFFDCFCE7),
+            ),
+            const SizedBox(width: 8),
+            _buildI4TPeerStatBadge(
+              icon: Icons.cloud_off_outlined,
+              label: '离线',
+              count: offline,
+              color: const Color(0xFF64748B),
+              background: const Color(0xFFE2E8F0),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '共 ${peers.peers.length} 台设备 · 状态实时更新',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.color
+                      ?.withOpacity(0.64),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildI4TPeerStatBadge({
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+    required Color background,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 5),
+          Text(
+            '$label $count',
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -862,19 +949,149 @@ end tell
   Future<void> _showI4TLoginChoices(BuildContext context) async {
     final action = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('登录方式'),
-        content: const Text('请选择登录方式。i4T SSO 会先连接 RustDesk API，再跳转 Authentik。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('rustdesk'),
-            child: const Text('RustDesk 默认登录'),
+      barrierColor: const Color(0xFF0B1B43).withOpacity(0.38),
+      builder: (context) => Dialog(
+        elevation: 22,
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x330B1B43),
+                  blurRadius: 32,
+                  offset: Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 12, 18),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF0B3A82), Color(0xFF1266F1)],
+                    ),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(18),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.shield_outlined,
+                            color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '选择登录方式',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(height: 3),
+                            Text(
+                              '统一身份认证，安全访问远程设备',
+                              style: TextStyle(
+                                color: Color(0xFFDCEAFF),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '关闭',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final vertical = constraints.maxWidth < 470;
+                      final options = [
+                        _buildI4TLoginChoiceTile(
+                          icon: Icons.person_outline,
+                          title: 'RustDesk 账户',
+                          subtitle: '使用账号和密码登录',
+                          actionText: '账户登录',
+                          color: const Color(0xFF475569),
+                          onTap: () => Navigator.of(context).pop('rustdesk'),
+                        ),
+                        _buildI4TLoginChoiceTile(
+                          icon: Icons.verified_user_outlined,
+                          title: 'i4T SSO',
+                          subtitle: 'Authentik 企业单点登录',
+                          actionText: '推荐',
+                          color: const Color(0xFF1266F1),
+                          recommended: true,
+                          onTap: () => Navigator.of(context).pop('sso'),
+                        ),
+                      ];
+                      return vertical
+                          ? Column(
+                              children: [
+                                options[0],
+                                const SizedBox(height: 12),
+                                options[1],
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(child: options[0]),
+                                const SizedBox(width: 14),
+                                Expanded(child: options[1]),
+                              ],
+                            );
+                    },
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.lock_outline,
+                          size: 14, color: Color(0xFF64748B)),
+                      SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'SSO 会通过 RustDesk API 跳转 Authentik 完成认证',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop('sso'),
-            child: const Text(i4tSsoLabel),
-          ),
-        ],
+        ),
       ),
     );
     if (action == 'rustdesk') {
@@ -882,6 +1099,87 @@ end tell
     } else if (action == 'sso') {
       await openI4TSso();
     }
+  }
+
+  Widget _buildI4TLoginChoiceTile(
+    {required IconData icon,
+    required String title,
+    required String subtitle,
+    required String actionText,
+    required Color color,
+    required VoidCallback onTap,
+    bool recommended = false,
+  }) {
+    return Material(
+      color: recommended ? const Color(0xFFF1F6FF) : const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 142),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: recommended ? const Color(0xFF93B8FF) : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: color, size: 21),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      actionText,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildI4TLocalCard(BuildContext context, {required bool compact}) {
@@ -2438,6 +2736,10 @@ buildTip(BuildContext context) {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       gFFI.peerTabModel.setTabVisible(PeerTabIndex.fav.index, false);
+      bind.mainLoadRecentPeers();
+      bind.mainIsUsingPublicServer().then((isPublic) {
+        _i4tPeerQueryIntervalSeconds = isPublic ? 20 : 6;
+      });
     });
     _updateTimer = periodic_immediate(const Duration(seconds: 1), () async {
       await gFFI.serverModel.fetchID();
@@ -2489,6 +2791,20 @@ buildTip(BuildContext context) {
       }
       if (_i4tSection == _I4TDashboardSection.logs) {
         await _refreshI4TLogs();
+      }
+      _i4tPeerStatusTick += 1;
+      if (_i4tSection != _I4TDashboardSection.logs &&
+          _i4tPeerStatusTick >= _i4tPeerQueryIntervalSeconds) {
+        _i4tPeerStatusTick = 0;
+        final ids = _currentI4TPeers()
+            .peers
+            .map((peer) => peer.id)
+            .where((id) => id.isNotEmpty)
+            .take(1000)
+            .toList(growable: false);
+        if (ids.isNotEmpty) {
+          bind.queryOnlines(ids: ids);
+        }
       }
     });
     Get.put<RxBool>(svcStopped, tag: 'stop-service');

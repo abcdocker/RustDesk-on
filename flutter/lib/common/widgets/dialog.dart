@@ -16,6 +16,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_hbb/utils/http_service.dart' as http;
 
 import '../../common.dart';
+import '../../common/id_change_validation.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import 'address_book.dart';
@@ -78,10 +79,9 @@ void changeIdDialog({String? impactNotice}) {
 
   final rules = [
     RegexValidationRule(
-        'starts with a letter or number', RegExp(r'^[a-zA-Z0-9]')),
-    LengthRangeValidationRule(6, 16),
-    RegexValidationRule(
-        'allowed characters', RegExp(r'^[a-zA-Z0-9_-]*$'))
+        'starts with a letter or number', customIdStartPattern),
+    LengthRangeValidationRule(customIdMinLength, customIdMaxLength),
+    RegexValidationRule('allowed characters', customIdAllowedPattern)
   ];
 
   gFFI.dialogManager.show((setState, close, context) {
@@ -111,8 +111,22 @@ void changeIdDialog({String? impactNotice}) {
         status = await bind.mainGetAsyncStatus();
       }
       if (status.isEmpty) {
-        // ok
+        var appliedId = '';
+        for (var attempt = 0; attempt < 30; attempt++) {
+          appliedId = (await bind.mainGetMyId()).trim();
+          if (appliedId == newId) break;
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+        if (appliedId != newId) {
+          setState(() {
+            isInProgress = false;
+            msg = '本机服务未确认新 ID，请检查运行日志后重试';
+          });
+          return;
+        }
+        await gFFI.serverModel.fetchID();
         close();
+        showToast('本机 ID 已修改为 $newId');
         return;
       }
       setState(() {
@@ -156,10 +170,10 @@ void changeIdDialog({String? impactNotice}) {
             decoration: InputDecoration(
                 labelText: translate('Your new ID'),
                 errorText: msg.isEmpty ? null : translate(msg),
-                suffixText: '${rxId.value.length}/16',
+                suffixText: '${rxId.value.length}/$customIdMaxLength',
                 suffixStyle: const TextStyle(fontSize: 12, color: Colors.grey)),
             inputFormatters: [
-              LengthLimitingTextInputFormatter(16),
+              LengthLimitingTextInputFormatter(customIdMaxLength),
               // FilteringTextInputFormatter(RegExp(r"[a-zA-z][a-zA-z0-9\_]*"), allow: true)
             ],
             controller: controller,

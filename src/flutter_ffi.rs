@@ -1350,9 +1350,24 @@ fn load_recent_peers(
     let mut peers_next = PeerConfig::batch_peers(vec_id_modified_time_path, from, to);
     // There may be less peers than the batch size.
     // But no need to consider this case, because it is a rare case.
-    let peers = peers_next.0.drain(..).map(|(id, _, p)| peer_to_map(id, p));
+    let peers = peers_next
+        .0
+        .drain(..)
+        .map(|(id, modified, p)| peer_to_map_with_modified_time(id, modified, p));
     all_peers.extend(peers);
     peers_next.1
+}
+
+fn peer_to_map_with_modified_time(
+    id: String,
+    modified: SystemTime,
+    peer: PeerConfig,
+) -> HashMap<&'static str, String> {
+    let mut result = peer_to_map(id, peer);
+    if let Ok(duration) = modified.duration_since(SystemTime::UNIX_EPOCH) {
+        result.insert("last_connected", duration.as_secs().to_string());
+    }
+    result
 }
 
 pub fn main_load_recent_peers() {
@@ -1418,7 +1433,7 @@ pub fn main_load_recent_peers_for_ab(filter: String) -> String {
     if !config::APP_DIR.read().unwrap().is_empty() {
         let peers: Vec<HashMap<&str, String>> = PeerConfig::peers(id_filters)
             .drain(..)
-            .map(|(id, _, p)| peer_to_map(id, p))
+            .map(|(id, modified, p)| peer_to_map_with_modified_time(id, modified, p))
             .collect();
         return serde_json::ser::to_string(&peers).unwrap_or("".to_owned());
     }
@@ -1458,7 +1473,7 @@ pub fn main_load_fav_peers() {
         recent.append(&mut lan);
         let peers: Vec<HashMap<&str, String>> = recent
             .into_iter()
-            .map(|(id, _, p)| peer_to_map(id, p))
+            .map(|(id, modified, p)| peer_to_map_with_modified_time(id, modified, p))
             .collect();
 
         push_to_flutter(serde_json::ser::to_string(&peers).unwrap_or("".to_owned()));

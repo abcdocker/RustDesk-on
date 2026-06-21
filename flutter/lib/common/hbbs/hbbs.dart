@@ -71,6 +71,7 @@ class PeerPayload {
   String user_name = '';
   String? device_group_name;
   String note = '';
+  dynamic lastConnectedAt;
 
   PeerPayload.fromJson(Map<String, dynamic> json)
       : id = json['id'] ?? '',
@@ -79,7 +80,12 @@ class PeerPayload {
         user = json['user'] ?? '',
         user_name = json['user_name'] ?? '',
         device_group_name = json['device_group_name'] ?? '',
-        note = json['note'] ?? '';
+        note = json['note'] ?? '',
+        lastConnectedAt = json['last_connected'] ??
+            json['last_connected_at'] ??
+            json['last_online'] ??
+            json['last_seen'] ??
+            json['updated_at'];
 
   static Peer toPeer(PeerPayload p) {
     return Peer.fromJson({
@@ -90,6 +96,7 @@ class PeerPayload {
       "hostname": p.info['device_name'],
       "device_group_name": p.device_group_name,
       "note": p.note,
+      "last_connected": p.lastConnectedAt,
     });
   }
 

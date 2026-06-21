@@ -131,6 +131,56 @@ class _PeerCardState extends State<_PeerCard>
     return peerTabShowNote(widget.tab) && peer.note.isNotEmpty;
   }
 
+  int _lastConnectedAt(Peer peer) {
+    if (peer.lastConnectedAt > 0) return peer.lastConnectedAt;
+    for (final recent in gFFI.recentPeersModel.peers) {
+      if (recent.id == peer.id) return recent.lastConnectedAt;
+    }
+    return 0;
+  }
+
+  String _lastConnectedText(Peer peer) {
+    if (peer.online) return '当前在线';
+    final timestamp = _lastConnectedAt(peer);
+    if (timestamp <= 0) return '暂无连接记录';
+    final time = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    final difference = DateTime.now().difference(time);
+    if (difference.isNegative || difference.inMinutes < 1) return '刚刚连接';
+    if (difference.inMinutes < 60) return '上次连接 ${difference.inMinutes} 分钟前';
+    if (difference.inHours < 24) return '上次连接 ${difference.inHours} 小时前';
+    if (difference.inDays < 7) return '上次连接 ${difference.inDays} 天前';
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '上次连接 ${time.year}-${two(time.month)}-${two(time.day)} ${two(time.hour)}:${two(time.minute)}';
+  }
+
+  Widget _lastConnectedLabel(Peer peer, {required bool onDark}) {
+    final color = peer.online
+        ? (onDark ? const Color(0xFFBBF7D0) : const Color(0xFF15803D))
+        : (onDark
+            ? Colors.white60
+            : Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.62));
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(peer.online ? Icons.circle : Icons.schedule_outlined,
+            size: peer.online ? 7 : 11, color: color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            _lastConnectedText(peer),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: peer.online ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   makeChild(bool isPortrait, Peer peer) {
     final name = hideUsernameOnCard == true
         ? peer.hostname
@@ -230,6 +280,11 @@ class _PeerCardState extends State<_PeerCard>
                             )
                         ],
                       ),
+                      if (!isPortrait)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _lastConnectedLabel(peer, onDark: false),
+                        ),
                     ],
                   ).marginOnly(top: 2),
                 ),
@@ -311,9 +366,9 @@ class _PeerCardState extends State<_PeerCard>
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(4),
                                 child:
-                                    getPlatformImage(peer.platform, size: 60),
+                                    getPlatformImage(peer.platform, size: 48),
                               ),
                               Row(
                                 children: [
@@ -351,6 +406,10 @@ class _PeerCardState extends State<_PeerCard>
                                     ))
                                   ],
                                 ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: _lastConnectedLabel(peer, onDark: true),
+                              ),
                             ],
                           ).paddingOnly(top: 4.0, left: 4.0, right: 4.0),
                         ),
