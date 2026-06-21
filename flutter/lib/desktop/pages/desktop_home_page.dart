@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material show Dialog;
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
@@ -950,7 +951,7 @@ end tell
     final action = await showDialog<String>(
       context: context,
       barrierColor: const Color(0xFF0B1B43).withOpacity(0.38),
-      builder: (context) => Dialog(
+      builder: (context) => material.Dialog(
         elevation: 22,
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
