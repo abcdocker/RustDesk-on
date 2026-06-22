@@ -1311,23 +1311,6 @@ const INVALID_FORMAT: &'static str = "Invalid format";
 const UNKNOWN_ERROR: &'static str = "Unknown error";
 const SERVER_NOT_SUPPORT: &'static str = "server_not_support";
 
-fn should_fallback_to_local_id_change(error: &str) -> bool {
-    error == SERVER_NOT_SUPPORT
-}
-
-#[cfg(test)]
-mod change_id_policy_tests {
-    use super::{should_fallback_to_local_id_change, INVALID_FORMAT, SERVER_NOT_SUPPORT};
-
-    #[test]
-    fn only_server_not_support_uses_local_fallback() {
-        assert!(should_fallback_to_local_id_change(SERVER_NOT_SUPPORT));
-        assert!(!should_fallback_to_local_id_change(INVALID_FORMAT));
-        assert!(!should_fallback_to_local_id_change("Not available"));
-        assert!(!should_fallback_to_local_id_change("Too frequent"));
-    }
-}
-
 #[inline]
 #[tokio::main(flavor = "current_thread")]
 pub async fn change_id_shared(id: String, old_id: String) -> String {
@@ -1384,24 +1367,6 @@ pub async fn change_id_shared_(id: String, old_id: String) -> &'static str {
     }
     join_all(futs).await;
     let err = *err.lock().unwrap();
-
-    // The open-source hbbs accepts normal ID registration, but does not expose
-    // the preflight ID-change endpoint. In that case, update the service-owned
-    // config through IPC instead of editing RustDesk.toml directly. The service
-    // will clear key confirmation and register the requested ID normally.
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    if should_fallback_to_local_id_change(err) {
-        return match crate::ipc::set_config_async("id", id.to_owned()).await {
-            Ok(_) => {
-                log::info!("ID server does not support change preflight; updated ID through IPC");
-                ""
-            }
-            Err(e) => {
-                log::error!("Failed to update ID through IPC: {e}");
-                UNKNOWN_ERROR
-            }
-        };
-    }
 
     if err.is_empty() {
         #[cfg(not(any(target_os = "android", target_os = "ios")))]

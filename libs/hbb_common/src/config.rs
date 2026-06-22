@@ -76,6 +76,7 @@ lazy_static::lazy_static! {
         (keys::OPTION_HIDE_SERVER_SETTINGS.to_owned(), "Y".to_owned()),
         (keys::OPTION_HIDE_PROXY_SETTINGS.to_owned(), "Y".to_owned()),
         (keys::OPTION_HIDE_WEBSOCKET_SETTINGS.to_owned(), "Y".to_owned()),
+        (keys::OPTION_DISABLE_CHANGE_ID.to_owned(), "Y".to_owned()),
     ]));
 }
 
